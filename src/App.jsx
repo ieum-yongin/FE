@@ -1,4 +1,6 @@
 
+import AlertsPage from './components/AlertsPage'
+import StationDataStatus from './components/StationDataStatus'
 import { useState } from 'react'
 import './App.css'
 
@@ -112,6 +114,8 @@ function MapPage() {
             지도 서비스 및 정류소 API 연결 후
             실제 지도를 표시합니다.
           </p>
+
+           <StationDataStatus />
         </div>
         <RiskLegend />
       </div>
@@ -133,14 +137,18 @@ function App() {
       />
       <main className="main">
         <Header />
-        {activeMenu === 'map' ? (
-          <MapPage />
-        ) : (
-          <section className="coming-soon">
-            <h1>{currentMenu?.label}</h1>
-            <p>이 화면은 다음 단계에서 구현합니다.</p>
-          </section>
-        )}
+        
+{activeMenu === 'map' ? (
+  <MapPage />
+) : activeMenu === 'alert' ? (
+  <AlertsPage />
+) : (
+  <section className="coming-soon">
+    <h1>{currentMenu?.label}</h1>
+    <p>이 화면은 다음 단계에서 구현합니다.</p>
+  </section>
+)}
+
       </main>
     </div>
   )
