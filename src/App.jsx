@@ -1,8 +1,15 @@
 
-import { useMemo, useState } from 'react'
+import SimulationPage from './components/SimulationPage'
+import { useEffect, useMemo, useState } from 'react'
 import AlertsPage from './components/AlertsPage'
 import StationDataStatus from './components/StationDataStatus'
 import StationDetail from './components/StationDetail'
+import StationMap from './components/StationMap'
+import {
+  getStationList,
+  getStationDetail,
+  USE_STATION_MOCK,
+} from './services/stationApi'
 import './App.css'
 
 const menus = [
@@ -11,127 +18,16 @@ const menus = [
   { id: 'simulation', label: '만약에 시뮬레이션', icon: '➜' },
 ]
 
-const riskLevels = [
-  {
-    id: 'high',
-    label: '위험',
-    detail: '노선 부족, 긴 배차간격, 낮은 연결성',
-  },
-  {
-    id: 'medium',
-    label: '주의',
-    detail: '일부 노선 불균형 또는 연결성 미흡',
-  },
-  {
-    id: 'low',
-    label: '양호',
-    detail: '노선과 연결성이 양호',
-  },
-]
-
-// 모든 수치와 지도 위치는 화면 테스트용 가상 데이터입니다.
-// 실제 정류소 번호, 이용량, 위험도, 통계가 아닙니다.
-const demoStations = [
-  {
-    id: 'demo-1',
-    name: '죽전역 (마을)',
-    direction: '한신 길훈아파트 방면',
-    risk: 'stable',
-    riskLabel: '안정',
-    averageBoarding: 270,
-    averageAlighting: 190,
-    routeCount: 8,
-    transferRate: 69,
-    rank: null,
-    period: '2026.06.01 ~ 08.31',
-    routes: ['시연 노선 A', '시연 노선 B'],
-    x: 28,
-    y: 31,
-  },
-  {
-    id: 'demo-2',
-    name: '기흥역',
-    direction: '시연용 방면 정보',
-    risk: 'warning',
-    riskLabel: '주의',
-    averageBoarding: 185,
-    averageAlighting: 160,
-    routeCount: 5,
-    transferRate: 48,
-    rank: null,
-    period: '2026.06.01 ~ 08.31',
-    routes: ['시연 노선 C'],
-    x: 49,
-    y: 47,
-  },
-  {
-    id: 'demo-3',
-    name: '용인시청·용인대역',
-    direction: '시연용 방면 정보',
-    risk: 'danger',
-    riskLabel: '위험',
-    averageBoarding: 120,
-    averageAlighting: 95,
-    routeCount: 2,
-    transferRate: 24,
-    rank: null,
-    period: '2026.06.01 ~ 08.31',
-    routes: ['시연 노선 D'],
-    x: 66,
-    y: 58,
-  },
-  {
-    id: 'demo-4',
-    name: '수지구청역',
-    direction: '시연용 방면 정보',
-    risk: 'stable',
-    riskLabel: '안정',
-    averageBoarding: 320,
-    averageAlighting: 290,
-    routeCount: 9,
-    transferRate: 72,
-    rank: null,
-    period: '2026.06.01 ~ 08.31',
-    routes: ['시연 노선 E', '시연 노선 F'],
-    x: 29,
-    y: 68,
-  },
-  {
-    id: 'demo-5',
-    name: '강남대역',
-    direction: '시연용 방면 정보',
-    risk: 'warning',
-    riskLabel: '주의',
-    averageBoarding: 210,
-    averageAlighting: 175,
-    routeCount: 4,
-    transferRate: 41,
-    rank: null,
-    period: '2026.06.01 ~ 08.31',
-    routes: ['시연 노선 G'],
-    x: 73,
-    y: 25,
-  },
-]
-
-const markerColors = {
-  stable: '#40e85b',
-  warning: '#ffdf46',
-  danger: '#ff6868',
-}
-
 function Sidebar({ activeMenu, onMenuChange }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
         <span className="logo-symbol">이음</span>
-        <span className="logo-caption">
-          용인 교통 정보
-        </span>
+        <span className="logo-caption">용인 교통 정보</span>
       </div>
 
       <nav className="sidebar-nav" aria-label="주 메뉴">
-        {menus.map((menu) => (
+        {menus.map(menu => (
           <button
             key={menu.id}
             type="button"
@@ -144,7 +40,6 @@ function Sidebar({ activeMenu, onMenuChange }) {
               {menu.icon}
             </span>
             <span>{menu.label}</span>
-
             {menu.id === 'alert' && (
               <span className="notification-dot" />
             )}
@@ -164,291 +59,346 @@ function Header() {
           시민을 위한 교통 정보
         </span>
       </div>
-
-      <span className="header-status">
-        개발 중
-      </span>
+      <span className="header-status">개발 중</span>
     </header>
   )
 }
 
-function RiskLegend() {
-  return (
-    <section
-      className="risk-legend"
-      aria-label="위험도 안내"
-    >
-      <div className="legend-column">
-        <h2>위험도 안내</h2>
-
-        {riskLevels.map((risk) => (
-          <div className="legend-item" key={risk.id}>
-            <span
-              className={`risk-indicator ${risk.id}`}
-            />
-
-            <div>
-              <strong>{risk.label}</strong>
-              <p>{risk.detail}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="legend-column legend-info">
-        <h2>표시 정보</h2>
-        <p>정류소별 교통 정보 표시 영역</p>
-        <p className="muted">
-          API 연결 후 실제 데이터를 표시합니다.
-        </p>
-      </div>
-    </section>
-  )
-}
-
 function MapPage() {
-  const [selectedId, setSelectedId] = useState(null)
+  const [stations, setStations] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+
   const [query, setQuery] = useState('')
   const [riskFilter, setRiskFilter] = useState('all')
+  const [selectedId, setSelectedId] = useState(null)
+  const [selectedStation, setSelectedStation] = useState(null)
+  const [detailError, setDetailError] = useState('')
+  const [detailLoading, setDetailLoading] = useState(false)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadStations() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const data = await getStationList({
+          signal: controller.signal,
+        })
+
+        if (!controller.signal.aborted) {
+          setStations(data)
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setError(err.message)
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadStations()
+
+    return () => controller.abort()
+  }, [reloadKey])
+
+  useEffect(() => {
+    if (selectedId == null) {
+      setSelectedStation(null)
+      setDetailLoading(false)
+      setDetailError('')
+      return
+    }
+
+    const controller = new AbortController()
+
+    async function loadDetail() {
+      setDetailLoading(true)
+      setDetailError('')
+      setSelectedStation(null)
+
+      try {
+        const data = await getStationDetail(
+          selectedId,
+          { signal: controller.signal }
+        )
+
+        if (!controller.signal.aborted) {
+          if (data) {
+            // 목록의 좌표 정보를 보존
+            const listStation = stations.find(
+              station =>
+                String(station.id) === String(selectedId)
+            )
+
+            setSelectedStation({
+              ...listStation,
+              ...data,
+              latitude:
+                data.latitude ?? listStation?.latitude,
+              longitude:
+                data.longitude ?? listStation?.longitude,
+            })
+          } else {
+            setDetailError('정류소를 찾지 못했습니다.')
+          }
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setDetailError(err.message)
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setDetailLoading(false)
+        }
+      }
+    }
+
+    loadDetail()
+
+    return () => controller.abort()
+  }, [selectedId, stations])
 
   const filteredStations = useMemo(() => {
-    return demoStations.filter((station) => {
-      const matchesName = (
-        station.name + ' ' + station.id
-      )
-        .toLowerCase()
-        .includes(query.trim().toLowerCase())
+    const search = query.trim().toLowerCase()
 
+    return stations.filter(station => {
+      const searchable = (
+        String(station.name ?? '') +
+        ' ' +
+        String(station.id ?? '')
+      ).toLowerCase()
+
+      const matchesSearch = searchable.includes(search)
       const matchesRisk =
         riskFilter === 'all' ||
         station.risk === riskFilter
 
-      return matchesName && matchesRisk
+      return matchesSearch && matchesRisk
     })
-  }, [query, riskFilter])
+  }, [stations, query, riskFilter])
 
-  const selectedStation =
-    demoStations.find(
-      (station) => station.id === selectedId
-    ) ?? null
+  function closeDetail() {
+    setSelectedId(null)
+    setSelectedStation(null)
+    setDetailError('')
+  }
 
   return (
     <div
       className="map-page"
       style={{
         position: 'relative',
-        minHeight: 'calc(100vh - 95px)',
+        height: 'calc(100vh - 95px)',
+        minHeight: 600,
+        overflow: 'hidden',
       }}
     >
-      <div className="map-placeholder">
-        <div className="map-notice">
-          정류소 마커를 선택하면 상세 정보를
-          확인할 수 있어요.
-        </div>
+      <StationMap
+        stations={filteredStations}
+        selectedStation={selectedStation}
+        onSelect={station => setSelectedId(station.id)}
+      />
 
-        <div className="map-empty">
-          <span className="map-empty-icon">
-            ⌖
-          </span>
+      {/* 정류소 검색 및 목록 */}
+      <section
+        aria-label="정류소 검색"
+        style={{
+          position: 'absolute',
+          zIndex: 500,
+          top: 78,
+          left: 22,
+          width: 'min(350px, calc(100% - 44px))',
+          maxHeight: 'calc(100% - 110px)',
+          overflowY: 'auto',
+          padding: 18,
+          borderRadius: 18,
+          background: '#fff',
+          boxShadow: '0 6px 25px #0002',
+          boxSizing: 'border-box',
+        }}
+      >
+        <h2 style={{ margin: '0 0 7px', fontSize: 20 }}>
+          정류소 검색
+        </h2>
 
-          <h1>정류소 지도 시연</h1>
+        <p
+          style={{
+            fontSize: 12,
+            color: '#777',
+            marginBottom: 15,
+          }}
+        >
+          {USE_STATION_MOCK
+            ? '시연용 데이터 · 실제 위치 아님'
+            : 'Django 정류소 조회'}
+        </p>
 
-          <p>
-            실제 지도 SDK 연결 전,
-            정류소 선택 기능을 테스트합니다.
-          </p>
+        <input
+          type="search"
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+          placeholder="정류소명 또는 번호"
+          aria-label="정류소명 또는 번호"
+          style={{
+            width: '100%',
+            padding: 12,
+            border: '1px solid #ddd',
+            borderRadius: 10,
+            boxSizing: 'border-box',
+            background: '#fff',
+            color: '#222',
+          }}
+        />
 
-          <StationDataStatus />
+        <select
+          value={riskFilter}
+          onChange={event =>
+            setRiskFilter(event.target.value)
+          }
+          aria-label="위험도 필터"
+          style={{
+            width: '100%',
+            marginTop: 10,
+            padding: 12,
+            border: '1px solid #ddd',
+            borderRadius: 10,
+            background: '#fff',
+            color: '#222',
+          }}
+        >
+          <option value="all">전체 위험도</option>
+          <option value="danger">위험</option>
+          <option value="warning">주의</option>
+          <option value="stable">안정</option>
+          <option value="unknown">미분류</option>
+        </select>
 
-          {/* 정류소 검색 */}
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              gap: 10,
-              width: 'min(650px, 100%)',
-              margin: '22px auto 14px',
-            }}
-          >
-            <input
-              type="search"
-              value={query}
-              onChange={(event) =>
-                setQuery(event.target.value)
-              }
-              placeholder="정류소명 검색"
-              aria-label="정류소 검색"
-              style={{
-                flex: '1 1 220px',
-                minWidth: 0,
-                padding: '12px 15px',
-                border: '1px solid #ccc',
-                borderRadius: 10,
-                fontSize: 14,
-                background: '#fff',
-                color: '#232323',
-              }}
-            />
+        <StationDataStatus />
 
-            <select
-              value={riskFilter}
-              onChange={(event) =>
-                setRiskFilter(event.target.value)
-              }
-              aria-label="위험도 선택"
-              style={{
-                padding: '12px 15px',
-                border: '1px solid #ccc',
-                borderRadius: 10,
-                background: '#fff',
-                color: '#232323',
-                fontSize: 14,
-              }}
+        {loading && <p>정류소 목록 불러오는 중...</p>}
+
+        {error && (
+          <div role="alert">
+            <p style={{ color: '#c22' }}>{error}</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey(n => n + 1)}
             >
-              <option value="all">전체 위험도</option>
-              <option value="danger">위험</option>
-              <option value="warning">주의</option>
-              <option value="stable">안정</option>
-            </select>
+              다시 시도
+            </button>
           </div>
+        )}
 
-          {/* 실제 지도가 아닌 마커 배치 테스트 영역 */}
-          <div
-            role="group"
-            aria-label="시연용 정류소 마커"
-            style={{
-              position: 'relative',
-              width: 'min(650px, 100%)',
-              height: 310,
-              margin: '0 auto 18px',
-              overflow: 'hidden',
-              border: '1px solid #ceddce',
-              borderRadius: 18,
-              backgroundColor: '#edf4e9',
-              backgroundImage: [
-                'linear-gradient(33deg, transparent 46%, #fff 46%, #fff 49%, transparent 49%)',
-                'linear-gradient(116deg, transparent 61%, #fff 61%, #fff 64%, transparent 64%)',
-                'linear-gradient(0deg, transparent 71%, #fff 71%, #fff 74%, transparent 74%)',
-              ].join(','),
-            }}
-          >
-            <span
+        {!loading && !error && (
+          <>
+            <p style={{ fontSize: 13, color: '#777' }}>
+              검색 결과 {filteredStations.length}곳
+            </p>
+
+            <div
               style={{
-                position: 'absolute',
-                top: 12,
-                left: 14,
-                color: '#687768',
-                fontSize: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
               }}
             >
-              용인시 · 시연용 배치
-            </span>
+              {filteredStations.length === 0 && (
+                <p>검색 결과가 없습니다.</p>
+              )}
 
-            {filteredStations.map((station) => (
-              <button
-                key={station.id}
-                type="button"
-                onClick={() =>
-                  setSelectedId(station.id)
-                }
-                title={`${station.name} 상세정보 보기`}
-                aria-label={`${station.name} 선택`}
-                aria-pressed={
-                  selectedId === station.id
-                }
-                style={{
-                  position: 'absolute',
-                  left: `${station.x}%`,
-                  top: `${station.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 5,
-                  minWidth: 100,
-                  padding: 4,
-                  border: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  zIndex:
-                    selectedId === station.id ? 2 : 1,
-                }}
-              >
-                <span
+              {filteredStations.slice(0, 50).map(station => (
+                <button
+                  key={station.id}
+                  type="button"
+                  onClick={() => setSelectedId(station.id)}
                   style={{
-                    display: 'grid',
-                    placeItems: 'center',
-                    width: 39,
-                    height: 39,
-                    border: '3px solid white',
-                    borderRadius: 12,
+                    padding: '12px 14px',
+                    border:
+                      String(selectedId) === String(station.id)
+                        ? '1px solid #20b800'
+                        : '1px solid #e5e5e5',
+                    borderRadius: 11,
                     background:
-                      markerColors[station.risk],
-                    boxShadow:
-                      selectedId === station.id
-                        ? '0 0 0 3px #333'
-                        : '0 2px 7px #0003',
+                      String(selectedId) === String(station.id)
+                        ? '#eaffdf'
+                        : '#fafafa',
                     color: '#222',
-                    fontWeight: 800,
-                    fontSize: 19,
+                    cursor: 'pointer',
+                    textAlign: 'left',
                   }}
                 >
-                  ⌖
-                </span>
+                  <strong>{station.name}</strong>
+                  <span
+                    style={{
+                      display: 'block',
+                      marginTop: 4,
+                      fontSize: 12,
+                      color: '#777',
+                    }}
+                  >
+                    {station.riskLabel || '위험도 미확인'}
+                  </span>
+                </button>
+              ))}
+            </div>
 
-                <span
-                  style={{
-                    padding: '5px 8px',
-                    maxWidth: 130,
-                    borderRadius: 7,
-                    background: '#fff',
-                    boxShadow: '0 2px 6px #0002',
-                    color: '#222',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {station.name}
-                </span>
-              </button>
-            ))}
-
-            {filteredStations.length === 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'grid',
-                  placeItems: 'center',
-                  color: '#666',
-                  fontSize: 14,
-                }}
-              >
-                검색 결과가 없습니다.
-              </div>
+            {filteredStations.length > 50 && (
+              <p style={{ fontSize: 12, color: '#777' }}>
+                목록에는 처음 50개만 표시합니다.
+              </p>
             )}
-          </div>
+          </>
+        )}
+      </section>
 
-          <p
-            style={{
-              fontSize: 12,
-              color: '#777',
-              marginBottom: 20,
-            }}
-          >
-            표시된 위치와 통계는 모두 시연용입니다.
-          </p>
+      {detailLoading && (
+        <div
+          role="status"
+          style={{
+            position: 'absolute',
+            zIndex: 600,
+            top: 18,
+            right: 24,
+            padding: 16,
+            borderRadius: 12,
+            background: '#fff',
+          }}
+        >
+          상세정보 불러오는 중...
         </div>
+      )}
 
-        <RiskLegend />
-      </div>
+      {detailError && (
+        <div
+          role="alert"
+          style={{
+            position: 'absolute',
+            zIndex: 600,
+            top: 18,
+            right: 24,
+            padding: 16,
+            borderRadius: 12,
+            background: '#fff',
+          }}
+        >
+          <p>{detailError}</p>
+          <button type="button" onClick={closeDetail}>
+            닫기
+          </button>
+        </div>
+      )}
 
       {selectedStation && (
         <StationDetail
           station={selectedStation}
-          onClose={() => setSelectedId(null)}
+          onClose={closeDetail}
         />
       )}
     </div>
@@ -456,12 +406,7 @@ function MapPage() {
 }
 
 function App() {
-  const [activeMenu, setActiveMenu] =
-    useState('map')
-
-  const currentMenu = menus.find(
-    (menu) => menu.id === activeMenu
-  )
+  const [activeMenu, setActiveMenu] = useState('map')
 
   return (
     <div className="app">
@@ -478,13 +423,8 @@ function App() {
         ) : activeMenu === 'alert' ? (
           <AlertsPage />
         ) : (
-          <section className="coming-soon">
-            <h1>{currentMenu?.label}</h1>
-            <p>
-              이 화면은 다음 단계에서 구현합니다.
-            </p>
-          </section>
-        )}
+  <SimulationPage />
+)}
       </main>
     </div>
   )
