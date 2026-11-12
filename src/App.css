@@ -265,33 +265,7 @@ button {
 }
 
 @media (max-width: 800px) {
-  .sidebar {
-    width: 74px;
-    min-width: 74px;
-  }
-
-  .sidebar-logo {
-    padding: 20px 5px;
-  }
-
-  .logo-symbol {
-    font-size: 18px;
-  }
-
-  .logo-caption,
-  .nav-item > span:not(.nav-icon) {
-    display: none;
-  }
-
-  .nav-item {
-    justify-content: center;
-    padding: 16px 0;
-  }
-
-  .header {
-    padding: 0 16px;
-  }
-
+  .header { padding: 0 16px; }
   .risk-legend {
     grid-template-columns: 1fr;
     position: relative;
@@ -299,10 +273,90 @@ button {
     bottom: auto;
     margin: 300px auto 24px;
   }
-
   .legend-info {
     padding: 15px 0 0;
     border-left: none;
     border-top: 1px solid #ddd;
   }
+}
+
+/* Figma 홈 메뉴바: 접힌 상태에서도 아이콘과 화살표 손잡이를 유지 */
+.sidebar {
+  position: relative;
+  flex: 0 0 225px;
+  transition: width .25s ease, min-width .25s ease, flex-basis .25s ease;
+  touch-action: pan-y;
+}
+.sidebar.collapsed {
+  width: 70px;
+  min-width: 70px;
+  flex-basis: 70px;
+}
+.sidebar.collapsed .sidebar-logo { padding: 30px 4px; }
+.sidebar.collapsed .logo-symbol { font-size: 25px; }
+.sidebar.collapsed .sidebar-nav { gap: 16px; }
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 14px 6px;
+  min-height: 68px;
+  gap: 0;
+}
+.sidebar.collapsed .nav-icon { font-size: 25px; width: 30px; }
+.sidebar.collapsed .notification-dot {
+  position: absolute;
+  right: 8px;
+  top: 15px;
+  margin: 0;
+  width: 7px;
+  height: 7px;
+}
+.sidebar.collapsed .nav-item { position: relative; }
+.sidebar-handle {
+  position: absolute;
+  left: calc(100% - 1px);
+  top: 43%;
+  z-index: 700;
+  width: 42px;
+  height: 90px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 0 14px 14px 0;
+  background: #cdfeb4;
+  color: #287e1b;
+  box-shadow: 3px 3px 10px #0000001c;
+  font-size: 38px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sidebar-handle:hover { background: #affc91; }
+.sidebar-handle:focus-visible { outline: 3px solid #247e1f; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}
+@media (max-width: 800px) {
+  .sidebar:not(.collapsed) { width: 190px; min-width: 190px; flex-basis: 190px; }
+  .sidebar-handle { width: 29px; height: 70px; font-size: 30px; }
+  .sidebar-logo { padding-left: 8px; padding-right: 8px; }
+  .nav-item { font-size: 15px; padding-left: 9px; padding-right: 8px; }
+}
+
+/* Ensure the Figma sidebar handle stays above the Leaflet map layers. */
+.app .sidebar {
+  position: relative;
+  z-index: 1000;
+  isolation: isolate;
+}
+.app .main {
+  position: relative;
+  z-index: 0;
+  min-width: 0;
+}
+.app .sidebar-handle {
+  z-index: 1001;
+  right: -41px;
+  left: auto;
+}
+@media (max-width: 800px) {
+  .app .sidebar-handle { right: -28px; }
 }

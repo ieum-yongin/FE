@@ -1,6 +1,6 @@
 
 import SimulationPage from './components/SimulationPage'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import AlertsPage from './components/AlertsPage'
 import StationDataStatus from './components/StationDataStatus'
 import StationDetail from './components/StationDetail'
@@ -18,12 +18,33 @@ const menus = [
   { id: 'simulation', label: '만약에 시뮬레이션', icon: '➜' },
 ]
 
-function Sidebar({ activeMenu, onMenuChange }) {
+function Sidebar({ activeMenu, onMenuChange, collapsed, onToggle }) {
+  const touchStartX = useRef(null)
+
+  function handleTouchStart(event) {
+    touchStartX.current = event.touches[0]?.clientX ?? null
+  }
+
+  function handleTouchEnd(event) {
+    if (touchStartX.current == null) return
+    const endX = event.changedTouches[0]?.clientX
+    if (endX == null) return
+    const delta = endX - touchStartX.current
+    touchStartX.current = null
+    if (delta < -55 && !collapsed) onToggle(true)
+    if (delta > 55 && collapsed) onToggle(false)
+  }
+
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">
-        <span className="logo-symbol">이음</span>
-        <span className="logo-caption">용인 교통 정보</span>
+    <aside
+      className={`sidebar ${collapsed ? 'collapsed' : ''}`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      aria-label="사이드바"
+    >
+      <div className="sidebar-logo" title="이음 · 용인 교통 정보">
+        <span className="logo-symbol">{collapsed ? '이' : '이음'}</span>
+        {!collapsed && <span className="logo-caption">용인 교통 정보</span>}
       </div>
 
       <nav className="sidebar-nav" aria-label="주 메뉴">
@@ -31,21 +52,29 @@ function Sidebar({ activeMenu, onMenuChange }) {
           <button
             key={menu.id}
             type="button"
-            className={`nav-item ${
-              activeMenu === menu.id ? 'active' : ''
-            }`}
+            title={collapsed ? menu.label : undefined}
+            aria-label={menu.label}
+            aria-current={activeMenu === menu.id ? 'page' : undefined}
+            className={`nav-item ${activeMenu === menu.id ? 'active' : ''}`}
             onClick={() => onMenuChange(menu.id)}
           >
-            <span className="nav-icon" aria-hidden="true">
-              {menu.icon}
-            </span>
-            <span>{menu.label}</span>
-            {menu.id === 'alert' && (
-              <span className="notification-dot" />
-            )}
+            <span className="nav-icon" aria-hidden="true">{menu.icon}</span>
+            {!collapsed && <span className="nav-label">{menu.label}</span>}
+            {menu.id === 'alert' && <span className="notification-dot" />}
           </button>
         ))}
       </nav>
+
+      <button
+        type="button"
+        className="sidebar-handle"
+        aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
+        aria-expanded={!collapsed}
+        onClick={() => onToggle(!collapsed)}
+        title={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
+      >
+        {collapsed ? '›' : '‹'}
+      </button>
     </aside>
   )
 }
@@ -280,7 +309,7 @@ function MapPage() {
           <option value="unknown">미분류</option>
         </select>
 
-        <StationDataStatus />
+        {!USE_STATION_MOCK && <StationDataStatus />}
 
         {loading && <p>정류소 목록 불러오는 중...</p>}
 
@@ -407,12 +436,15 @@ function MapPage() {
 
 function App() {
   const [activeMenu, setActiveMenu] = useState('map')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   return (
     <div className="app">
       <Sidebar
         activeMenu={activeMenu}
         onMenuChange={setActiveMenu}
+        collapsed={sidebarCollapsed}
+        onToggle={setSidebarCollapsed}
       />
 
       <main className="main">
@@ -423,8 +455,8 @@ function App() {
         ) : activeMenu === 'alert' ? (
           <AlertsPage />
         ) : (
-  <SimulationPage />
-)}
+          <SimulationPage />
+        )}
       </main>
     </div>
   )
