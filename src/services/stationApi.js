@@ -1,10 +1,7 @@
 
-const API_BASE = (
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-).replace(/\/$/, '')
+import { api, USE_MOCK } from './apiClient'
 
-export const USE_STATION_MOCK =
-  import.meta.env.VITE_USE_MOCK !== 'false'
+export const USE_STATION_MOCK = USE_MOCK
 
 // 실제 통계가 아닌 시연용 데이터
 const mockStations = [
@@ -90,6 +87,12 @@ const mockStations = [
   },
 ]
 
+function findMockStation(id) {
+  return mockStations.find(
+    station => String(station.id) === String(id)
+  )
+}
+
 function emptyStation(id) {
   return {
     id,
@@ -109,9 +112,9 @@ function emptyStation(id) {
   }
 }
 
-// 서버 응답 필드명은 백엔드 팀 명세 확인 후 확정
+// Django API 응답 필드명은 백엔드 명세 확정 후 조정
 export function normalizeStation(raw) {
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('정류소 데이터 형식이 올바르지 않습니다.')
   }
 
@@ -168,35 +171,20 @@ export function normalizeStation(raw) {
   }
 }
 
-async function request(path, signal) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-    },
-    signal,
-  })
-
-  if (!response.ok) {
-    throw new Error(
-      `서버 요청 실패 (HTTP ${response.status})`
-    )
-  }
-
-  return response.json()
-}
-
-// 목록
+// 정류소 목록
 export async function getStationList({ signal } = {}) {
   if (USE_STATION_MOCK) {
-    return mockStations.map(station => ({ ...station }))
+    return mockStations.map(station => ({
+      ...station,
+      routes: [...station.routes],
+    }))
   }
 
-  const data = await request('/api/stations/', signal)
+  const data = await api.get('/api/stations/', { signal })
 
   const list = Array.isArray(data)
     ? data
-    : data.results
+    : data?.results
 
   if (!Array.isArray(list)) {
     throw new Error(
@@ -207,28 +195,37 @@ export async function getStationList({ signal } = {}) {
   return list.map(normalizeStation)
 }
 
-// 상세
-export async function getStationDetail(id, { signal } = {}) {
+// 정류소 상세
+export async function getStationDetail(
+  id,
+  { signal } = {}
+) {
   if (USE_STATION_MOCK) {
-    return mockStations.find(
-      station => String(station.id) === String(id)
-    ) ?? null
+    const station = findMockStation(id)
+
+    return station
+      ? {
+          ...station,
+          routes: [...station.routes],
+        }
+      : null
   }
 
-  const raw = await request(
+  const raw = await api.get(
     `/api/stations/${encodeURIComponent(id)}/`,
-    signal
+    { signal }
   )
 
   return normalizeStation(raw)
 }
 
-// 이용 통계: 데이터 구조는 백엔드 확정 후 연결
-export async function getStationUsage(id, { signal } = {}) {
+// 정류소 이용 통계
+export async function getStationUsage(
+  id,
+  { signal } = {}
+) {
   if (USE_STATION_MOCK) {
-    const station = mockStations.find(
-      item => String(item.id) === String(id)
-    )
+    const station = findMockStation(id)
 
     return station
       ? {
@@ -239,8 +236,9 @@ export async function getStationUsage(id, { signal } = {}) {
       : null
   }
 
-  return request(
+  // 실제 응답 구조가 확정되면 정규화 함수 추가 예정
+  return api.get(
     `/api/stations/${encodeURIComponent(id)}/usage/`,
-    signal
+    { signal }
   )
 }
