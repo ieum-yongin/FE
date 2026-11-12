@@ -48,3 +48,62 @@
     text-align: center;
   }
 }
+
+/* Figma 홈 화면: 위험도 색상 마커와 하단 평균 승차인원 */
+.ieum-leaflet-icon { background: transparent; border: 0; }
+.ieum-marker {
+  display: grid;
+  place-items: center;
+  width: 55px;
+  height: 55px;
+  border: 4px solid white;
+  border-radius: 14px;
+  box-shadow: 2px 3px 10px #00000042;
+  color: #222;
+  transition: transform .15s ease;
+}
+.ieum-marker.danger { background: linear-gradient(135deg, #ff8250 0%, #ff4a4a 57%, #b50000 100%); }
+.ieum-marker.warning { background: linear-gradient(135deg, #ffe591 0%, #fff04a 57%, #eab400 100%); }
+.ieum-marker.stable { background: linear-gradient(135deg, #efffbb 0%, #4aff5c 60%, #00a611 100%); }
+.ieum-marker.unknown { background: linear-gradient(135deg, #f2f2f2, #999); }
+.ieum-marker-bus { font-size: 26px; font-weight: 800; line-height: 1; }
+.ieum-demo-marker-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 400;
+  pointer-events: none;
+}
+.ieum-demo-marker {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  transform: translate(-50%, -40%);
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.ieum-demo-marker:hover .ieum-marker,
+.ieum-demo-marker.selected .ieum-marker { transform: translateY(-3px) scale(1.08); }
+.ieum-demo-marker.selected .ieum-marker { outline: 3px solid #1c8b1d; outline-offset: 2px; }
+.ieum-demo-marker:focus-visible { outline: 3px solid #1c8b1d; outline-offset: 4px; border-radius: 8px; }
+.ieum-marker-count {
+  display: block;
+  min-width: 51px;
+  padding: 5px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  text-align: center;
+  color: #222;
+  background: #fff;
+  box-shadow: 1px 2px 12px #00000029;
+  font-size: 12px;
+}
+.station-map-demo-notice { z-index: 410; }
+@media (prefers-reduced-motion: reduce) {
+  .ieum-marker { transition: none; }
+}
