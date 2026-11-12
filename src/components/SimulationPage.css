@@ -63,3 +63,69 @@
 .simulation-more,.simulation-save { display:block; height:42px; margin-top:12px; border-radius:10px; border:1px solid #dedede; background:white; width:100%; font-size:14px; cursor:pointer; }
 .simulation-save { background:#cfffbf; border-color:#a9e993; font-weight:600; margin-top:20px; }
 @media(max-width:720px) { .simulation-panel { top:14px; left:12px; width:calc(100% - 24px); max-height:calc(100% - 28px); } .simulation-panel-scroll { max-height:calc(100vh - 95px - 28px); padding:15px; } .simulation-stat-grid { gap:6px; } .simulation-stat { padding:7px; } .simulation-stat>div { font-size:11px; } .simulation-stat strong { font-size:19px; } .simulation-demo-badge { top:auto; bottom:13px; right:12px; } }
+
+/* Figma 오리지널: 시뮬레이션 제목·검색·노선 선택 카드 */
+.simulation-heading-icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+}
+.simulation-search-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+}
+.simulation-plus-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+}
+.simulation-route-card {
+  min-height: 67px;
+  background: #fedddd;
+  border: 1px solid #ffa1a1;
+  border-radius: 14px;
+  gap: 15px;
+  padding: 11px 18px;
+}
+.simulation-bus-icon {
+  display: block;
+  width: 26px;
+  height: 28px;
+  flex: 0 0 26px;
+}
+.simulation-route-info strong { color: #eb1000; font-size: 16px; font-weight: 600; }
+.simulation-route-info small { color: #ff4a4a; font-size: 12px; font-weight: 500; }
+.simulation-route-status { color: #eb1000; font-size: 16px; font-weight: 600; }
+.simulation-remove {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: #fff;
+  color: #eb1000;
+  font-size: 24px;
+}
+.simulation-remove:hover { background: #fff4f4; }
+@media(max-width: 500px) {
+  .simulation-route-card { gap: 8px; padding: 9px 11px; }
+  .simulation-route-status { font-size: 12px; }
+  .simulation-route-info strong { font-size: 14px; }
+}
+
+/* Figma: 운행 중단 토글 (설정된 노선만 시뮬레이션에 반영) */
+.simulation-route-switch { flex:0 0 42px; width:42px; height:25px; padding:3px; background:#aaa; border:0; border-radius:30px; cursor:pointer; display:flex; align-items:center; justify-content:flex-start; transition:background .15s; }
+.simulation-route-switch[aria-checked="true"] { background:#ff4a4a; justify-content:flex-end; }
+.simulation-route-switch-thumb { width:19px; height:19px; border-radius:50%; background:#fff; box-shadow:0 1px 3px #0002; }
+.simulation-route-switch:focus-visible { outline:2px solid #353535; outline-offset:3px; }
+.simulation-route-switch:disabled { opacity:.5; cursor:not-allowed; }
+.simulation-route-card.is-running { background:#f6f6f6; border-color:#dedede; }
+.simulation-route-card.is-running .simulation-route-info strong,.simulation-route-card.is-running .simulation-route-status { color:#555; }
+.simulation-route-card.is-running .simulation-route-info small { color:#888; }
+.simulation-route-card .simulation-remove { width:27px; height:27px; flex:0 0 27px; font-size:20px; }
+@media(max-width:500px) { .simulation-route-card { gap:6px; } .simulation-route-switch { flex-basis:38px; width:38px; } .simulation-route-status { font-size:11px; } }
+
+.simulation-more { background:#d9ffbd; border:1px solid #73db56; color:#016900; display:flex; align-items:center; justify-content:center; gap:7px; font-weight:600; }
+.simulation-more:hover { background:#c3ffa7; }

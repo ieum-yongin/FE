@@ -7,6 +7,8 @@ import {
   useMap,
 } from 'react-leaflet'
 import L from 'leaflet'
+import StationMarker from './StationMarker'
+import busIconUrl from '../assets/figma/station-bus.svg'
 import 'leaflet/dist/leaflet.css'
 import './StationMap.css'
 
@@ -54,7 +56,7 @@ function markerIcon(station, isSelected) {
     className: 'ieum-leaflet-icon',
     iconSize: [58, 85],
     iconAnchor: [29, 29],
-    html: `<div class="ieum-marker ${risk} ${isSelected ? 'selected' : ''}"><span class="ieum-marker-bus">▣</span></div>`,
+    html: `<div class="ieum-marker ${risk} ${isSelected ? 'selected' : ''}"><img class="ieum-marker-bus" src="${busIconUrl}" alt="" /></div><span class="ieum-marker-count">${getBoarding(station)}</span>`,
   })
 }
 
@@ -82,7 +84,7 @@ function DemoMarker({ station, selected, onSelect }) {
       title={`${station.name} · ${station.riskLabel || '위험도 미확인'}`}
       onClick={() => onSelect(station)}
     >
-      <span className={`ieum-marker ${risk}`}><span className="ieum-marker-bus">▣</span></span>
+      <StationMarker risk={risk} selected={selected} />
       <span className="ieum-marker-count">{getBoarding(station)}</span>
     </button>
   )

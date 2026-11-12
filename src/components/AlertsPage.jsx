@@ -1,7 +1,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { getAlerts, USE_MOCK } from '../services/alerts'
+import FigmaUiIcon from './FigmaUiIcon'
 import './AlertsPage.css'
+
+// Mock 7개 중 4개를 우선 표시해 '더 보기' 동작도 테스트할 수 있게 합니다.
+const INITIAL_VISIBLE_COUNT = 7
 
 const STATUS_LABEL = {
   needs_review: '확인 필요',
@@ -102,7 +106,7 @@ export default function AlertsPage() {
 
   const visible = showMore
     ? filtered
-    : filtered.slice(0, 7)
+    : filtered.slice(0, INITIAL_VISIBLE_COUNT)
 
   // 상태 변경: 서버 저장은 추후 구현
   function updateStatus(id, status) {
@@ -174,7 +178,7 @@ export default function AlertsPage() {
         aria-label="이용 급변 알림 목록"
       >
         <div className="alerts-panel-heading">
-          <h1>♧ 이용 급변 알림</h1>
+          <h1><FigmaUiIcon name="alert" className="alerts-heading-icon" />이용 급변 알림</h1>
 
           <p>
             평소 대비 7일 연속 크게 변한 정류소를
@@ -291,7 +295,7 @@ export default function AlertsPage() {
             ))}
         </div>
 
-        {filtered.length > 7 && (
+        {filtered.length > INITIAL_VISIBLE_COUNT && (
           <button
             type="button"
             className="alerts-more"
@@ -299,8 +303,8 @@ export default function AlertsPage() {
           >
             {showMore
               ? '접기'
-              : `${filtered.length - 7}곳 더 보기`}
-            {' '}›
+              : `${filtered.length - INITIAL_VISIBLE_COUNT}곳 더 보기`}
+            <span className={`alerts-more-chevron ${showMore ? 'up' : ''}`} aria-hidden="true">⌄</span>
           </button>
         )}
       </section>

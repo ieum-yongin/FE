@@ -3,6 +3,7 @@ import StationMap from './StationMap'
 import SimulationResult from './SimulationResult'
 import { getStationList } from '../services/stationApi'
 import { getRoutes, createSimulation, getSimulation, getSimulationStops, USE_SIMULATION_MOCK } from '../services/simulations'
+import FigmaUiIcon from './FigmaUiIcon'
 import './SimulationPage.css'
 
 function routeDescription(route) {
@@ -19,6 +20,7 @@ export default function SimulationPage() {
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState([])
+  const [suspendedIds, setSuspendedIds] = useState([])
   const [result, setResult] = useState(null)
   const [resultRoutes, setResultRoutes] = useState([])
   const [running, setRunning] = useState(false)
@@ -70,6 +72,7 @@ export default function SimulationPage() {
   function addRoute(id) {
     if (running) return
     setSelectedIds(current => current.some(value => String(value) === String(id)) ? current : [...current, id])
+    setSuspendedIds(current => current.some(value => String(value) === String(id)) ? current : [...current, id])
     setQuery('')
     setSearchOpen(false)
     clearResult()
@@ -77,23 +80,32 @@ export default function SimulationPage() {
   function removeRoute(id) {
     if (running) return
     setSelectedIds(current => current.filter(value => String(value) !== String(id)))
+    setSuspendedIds(current => current.filter(value => String(value) !== String(id)))
     clearResult()
   }
   function resetSimulation() {
     if (running) return
     setSelectedIds([])
+    setSuspendedIds([])
     setQuery('')
     setSearchOpen(false)
     clearResult()
   }
+  function toggleRoute(id) {
+    if (running) return
+    setSuspendedIds(current => current.some(value => String(value) === String(id))
+      ? current.filter(value => String(value) !== String(id))
+      : [...current, id])
+    clearResult()
+  }
   async function runSimulation() {
-    if (!selectedIds.length || running) return
+    if (!suspendedIds.length || running) return
     setRunning(true)
     setSimulationError('')
     setResult(null)
-    const snapshot = [...selectedRoutes]
+    const snapshot = selectedRoutes.filter(route => suspendedIds.some(id => String(route.id) === String(id)))
     try {
-      const created = await createSimulation(selectedIds)
+      const created = await createSimulation(suspendedIds)
       if (!created || typeof created !== 'object') throw new Error('시뮬레이션 응답이 올바르지 않습니다.')
       let finalResult = { ...created }
       if (!USE_SIMULATION_MOCK) {
@@ -128,7 +140,7 @@ export default function SimulationPage() {
         <div className="simulation-panel-scroll">
           <header className="simulation-heading">
             <div className="simulation-heading-row">
-              <h1><span aria-hidden="true">➜</span> 만약에 시뮬레이션</h1>
+              <h1><FigmaUiIcon name="simulation" className="simulation-heading-icon" />만약에 시뮬레이션</h1>
               <button type="button" className="simulation-close-result" onClick={resetSimulation} disabled={running} title="시뮬레이션 초기화" aria-label="시뮬레이션 초기화">×</button>
             </div>
             <p>노선을 바꾸기 전에 그 영향을 미리 확인하는 화면이에요.</p>
@@ -137,7 +149,7 @@ export default function SimulationPage() {
             <h2>노선 고르기</h2>
             <div className="simulation-search-block" ref={searchRef}>
               <label className="simulation-search-wrap" htmlFor="simulation-route-search">
-                <span aria-hidden="true">⌕</span>
+                <FigmaUiIcon name="search" className="simulation-search-icon" />
                 <input id="simulation-route-search" type="search" placeholder="노선 번호 검색" value={query} disabled={running}
                   onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true) }} />
               </label>
@@ -158,26 +170,36 @@ export default function SimulationPage() {
             {routesError && <div role="alert"><p className="simulation-warning">{routesError}</p><button type="button" className="simulation-text-button" onClick={() => setReloadKey(value => value + 1)}>다시 시도</button></div>}
             <div className="simulation-selected">
               {selectedRoutes.map(route => (
-                <div className="simulation-route-card" key={route.id}>
-                  <span className="simulation-bus-icon" aria-hidden="true">▣</span>
+                <div className={`simulation-route-card ${suspendedIds.some(id => String(id) === String(route.id)) ? 'is-suspended' : 'is-running'}`} key={route.id}>
+                  <FigmaUiIcon name="routeBus" className="simulation-bus-icon" />
                   <div className="simulation-route-info"><strong>{route.number}</strong><small>{routeDescription(route)}</small></div>
-                  <span className="simulation-route-status">운행 중단</span>
-                  <button type="button" className="simulation-remove" disabled={running} onClick={() => removeRoute(route.id)} aria-label={`${route.number} 제거`}>×</button>
+                  <span className="simulation-route-status">{suspendedIds.some(id => String(id) === String(route.id)) ? '운행 중단' : '운행 유지'}</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={suspendedIds.some(id => String(id) === String(route.id))}
+                    aria-label={`${route.number} 운행 중단 설정`}
+                    className="simulation-route-switch"
+                    disabled={running}
+                    onClick={() => toggleRoute(route.id)}
+                  ><span className="simulation-route-switch-thumb" /></button>
+                  <button type="button" className="simulation-remove" disabled={running} onClick={() => removeRoute(route.id)} aria-label={`${route.number} 목록에서 제거`}>×</button>
                 </div>
               ))}
             </div>
             <button type="button" className="simulation-add-guide" disabled={running || routesLoading} onClick={() => {
               setSearchOpen(true)
               searchRef.current?.querySelector('input')?.focus()
-            }}><span aria-hidden="true">＋</span> 노선 하나 더 끄기</button>
+            }}><FigmaUiIcon name="plus" className="simulation-plus-icon" />노선 하나 더 끄기</button>
             {!result && (
               <div className="simulation-actions">
-                <button type="button" className="simulation-run" disabled={!selectedIds.length || routesLoading || running} onClick={runSimulation}>
+                <button type="button" className="simulation-run" disabled={!suspendedIds.length || routesLoading || running} onClick={runSimulation}>
                   {running ? '시뮬레이션 실행 중...' : '운행 중단 시뮬레이션 실행'}
                 </button>
                 <button type="button" className="simulation-text-button" disabled={running} onClick={resetSimulation}>선택 초기화</button>
               </div>
             )}
+            {selectedIds.length > 0 && !suspendedIds.length && <p className="simulation-helper">운행 중단할 노선의 스위치를 켜 주세요.</p>}
             {simulationError && <p role="alert" className="simulation-warning">{simulationError}</p>}
           </div>
           {result && <SimulationResult result={result} selectedRoutes={resultRoutes} onClose={() => setResult(null)} />}

@@ -270,3 +270,6 @@
     font-size: 12px;
   }
 }
+/* Figma 우측 상세정보: 지도 상단 검색 바 바로 아래 */
+.app .map-page .station-detail-panel { top: 58px; right: 16px; width: min(440px, calc(100% - 32px)); max-height: calc(100% - 72px); z-index: 600; }
+@media (max-width: 680px) { .app .map-page .station-detail-panel { top: 68px; right: 10px; max-height: calc(100% - 84px); } }

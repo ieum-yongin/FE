@@ -5,6 +5,10 @@ import AlertsPage from './components/AlertsPage'
 import StationDataStatus from './components/StationDataStatus'
 import StationDetail from './components/StationDetail'
 import StationMap from './components/StationMap'
+import BrandLogo from './components/BrandLogo'
+import SidebarIcon from './components/SidebarIcon'
+import FigmaUiIcon from './components/FigmaUiIcon'
+import busIconUrl from './assets/figma/station-bus.svg'
 import {
   getStationList,
   getStationDetail,
@@ -13,9 +17,9 @@ import {
 import './App.css'
 
 const menus = [
-  { id: 'map', label: '지도', icon: '⌖' },
-  { id: 'alert', label: '이용 급변 알림', icon: '♧' },
-  { id: 'simulation', label: '만약에 시뮬레이션', icon: '➜' },
+  { id: 'map', label: '지도' },
+  { id: 'alert', label: '이용 급변 알림' },
+  { id: 'simulation', label: '만약에 시뮬레이션' },
 ]
 
 function Sidebar({ activeMenu, onMenuChange, collapsed, onToggle }) {
@@ -43,8 +47,7 @@ function Sidebar({ activeMenu, onMenuChange, collapsed, onToggle }) {
       aria-label="사이드바"
     >
       <div className="sidebar-logo" title="이음 · 용인 교통 정보">
-        <span className="logo-symbol">{collapsed ? '이' : '이음'}</span>
-        {!collapsed && <span className="logo-caption">용인 교통 정보</span>}
+        <BrandLogo collapsed={collapsed} />
       </div>
 
       <nav className="sidebar-nav" aria-label="주 메뉴">
@@ -58,7 +61,7 @@ function Sidebar({ activeMenu, onMenuChange, collapsed, onToggle }) {
             className={`nav-item ${activeMenu === menu.id ? 'active' : ''}`}
             onClick={() => onMenuChange(menu.id)}
           >
-            <span className="nav-icon" aria-hidden="true">{menu.icon}</span>
+            <span className="nav-icon" aria-hidden="true"><SidebarIcon type={menu.id} /></span>
             {!collapsed && <span className="nav-label">{menu.label}</span>}
             {menu.id === 'alert' && <span className="notification-dot" />}
           </button>
@@ -100,7 +103,11 @@ function MapPage() {
   const [reloadKey, setReloadKey] = useState(0)
 
   const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchAreaRef = useRef(null)
+  const searchInputRef = useRef(null)
   const [riskFilter, setRiskFilter] = useState('all')
+  const [showRiskLegend, setShowRiskLegend] = useState(true)
   const [selectedId, setSelectedId] = useState(null)
   const [selectedStation, setSelectedStation] = useState(null)
   const [detailError, setDetailError] = useState('')
@@ -213,6 +220,27 @@ function MapPage() {
     })
   }, [stations, query, riskFilter])
 
+  // 검색창 외부(지도 포함)를 누르면 결과 패널을 닫습니다.
+  // 내부 필터 및 결과 클릭은 정상적으로 동작하도록 유지합니다.
+  useEffect(() => {
+    if (!searchOpen) return
+
+    function handleOutsidePointer(event) {
+      if (!searchAreaRef.current?.contains(event.target)) {
+        setSearchOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handleOutsidePointer)
+    return () => document.removeEventListener('pointerdown', handleOutsidePointer)
+  }, [searchOpen])
+
+  function handleSelectStation(station) {
+    setSelectedId(station.id)
+    setSearchOpen(false)
+    searchInputRef.current?.blur()
+  }
+
   function closeDetail() {
     setSelectedId(null)
     setSelectedStation(null)
@@ -224,168 +252,104 @@ function MapPage() {
       className="map-page"
       style={{
         position: 'relative',
-        height: 'calc(100vh - 95px)',
-        minHeight: 600,
+        height: '100vh',
+        minHeight: 520,
         overflow: 'hidden',
       }}
     >
       <StationMap
         stations={filteredStations}
         selectedStation={selectedStation}
-        onSelect={station => setSelectedId(station.id)}
+        onSelect={handleSelectStation}
       />
 
-      {/* 정류소 검색 및 목록 */}
-      <section
-        aria-label="정류소 검색"
-        style={{
-          position: 'absolute',
-          zIndex: 500,
-          top: 78,
-          left: 22,
-          width: 'min(350px, calc(100% - 44px))',
-          maxHeight: 'calc(100% - 110px)',
-          overflowY: 'auto',
-          padding: 18,
-          borderRadius: 18,
-          background: '#fff',
-          boxShadow: '0 6px 25px #0002',
-          boxSizing: 'border-box',
-        }}
-      >
-        <h2 style={{ margin: '0 0 7px', fontSize: 20 }}>
-          정류소 검색
-        </h2>
-
-        <p
-          style={{
-            fontSize: 12,
-            color: '#777',
-            marginBottom: 15,
-          }}
-        >
-          {USE_STATION_MOCK
-            ? '시연용 데이터 · 실제 위치 아님'
-            : 'Django 정류소 조회'}
-        </p>
-
-        <input
-          type="search"
-          value={query}
-          onChange={event => setQuery(event.target.value)}
-          placeholder="정류소명 또는 번호"
-          aria-label="정류소명 또는 번호"
-          style={{
-            width: '100%',
-            padding: 12,
-            border: '1px solid #ddd',
-            borderRadius: 10,
-            boxSizing: 'border-box',
-            background: '#fff',
-            color: '#222',
-          }}
-        />
-
-        <select
-          value={riskFilter}
-          onChange={event =>
-            setRiskFilter(event.target.value)
-          }
-          aria-label="위험도 필터"
-          style={{
-            width: '100%',
-            marginTop: 10,
-            padding: 12,
-            border: '1px solid #ddd',
-            borderRadius: 10,
-            background: '#fff',
-            color: '#222',
-          }}
-        >
-          <option value="all">전체 위험도</option>
-          <option value="danger">위험</option>
-          <option value="warning">주의</option>
-          <option value="stable">안정</option>
-          <option value="unknown">미분류</option>
-        </select>
-
-        {!USE_STATION_MOCK && <StationDataStatus />}
-
-        {loading && <p>정류소 목록 불러오는 중...</p>}
-
-        {error && (
-          <div role="alert">
-            <p style={{ color: '#c22' }}>{error}</p>
-            <button
-              type="button"
-              onClick={() => setReloadKey(n => n + 1)}
-            >
-              다시 시도
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && (
-          <>
-            <p style={{ fontSize: 13, color: '#777' }}>
-              검색 결과 {filteredStations.length}곳
-            </p>
-
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-              }}
-            >
-              {filteredStations.length === 0 && (
-                <p>검색 결과가 없습니다.</p>
-              )}
-
-              {filteredStations.slice(0, 50).map(station => (
-                <button
-                  key={station.id}
-                  type="button"
-                  onClick={() => setSelectedId(station.id)}
-                  style={{
-                    padding: '12px 14px',
-                    border:
-                      String(selectedId) === String(station.id)
-                        ? '1px solid #20b800'
-                        : '1px solid #e5e5e5',
-                    borderRadius: 11,
-                    background:
-                      String(selectedId) === String(station.id)
-                        ? '#eaffdf'
-                        : '#fafafa',
-                    color: '#222',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                >
-                  <strong>{station.name}</strong>
-                  <span
-                    style={{
-                      display: 'block',
-                      marginTop: 4,
-                      fontSize: 12,
-                      color: '#777',
-                    }}
-                  >
-                    {station.riskLabel || '위험도 미확인'}
-                  </span>
-                </button>
-              ))}
+      {/* 지도 상단의 검색은 입력 중에만 결과 목록을 표시 */}
+      <div className="map-search-area" ref={searchAreaRef}>
+        <label className="map-top-search">
+          <input
+            ref={searchInputRef}
+            type="search"
+            value={query}
+            onFocus={() => setSearchOpen(true)}
+            onChange={event => { setQuery(event.target.value); setSearchOpen(true) }}
+            onKeyDown={event => {
+              if (event.key === 'Escape') {
+                setSearchOpen(false)
+                event.currentTarget.blur()
+              }
+            }}
+            aria-expanded={searchOpen}
+            aria-controls="map-station-search-results"
+            aria-haspopup="listbox"
+            placeholder="정류소명 또는 번호"
+            aria-label="정류소명 또는 번호 검색"
+          />
+          <FigmaUiIcon name="search" className="map-top-search-icon" />
+        </label>
+        {searchOpen && (
+          <section id="map-station-search-results" className="map-search-dropdown" aria-label="정류소 검색 결과">
+            <div className="map-search-dropdown-head">
+              <strong>정류소 검색</strong>
+              <button type="button" onClick={() => setSearchOpen(false)} aria-label="검색 결과 닫기">×</button>
             </div>
-
-            {filteredStations.length > 50 && (
-              <p style={{ fontSize: 12, color: '#777' }}>
-                목록에는 처음 50개만 표시합니다.
-              </p>
+            <label className="map-risk-filter-label">
+              위험도
+              <select value={riskFilter} onChange={event => setRiskFilter(event.target.value)} aria-label="위험도 필터">
+                <option value="all">전체 위험도</option>
+                <option value="danger">위험</option>
+                <option value="warning">주의</option>
+                <option value="stable">안정</option>
+                <option value="unknown">미분류</option>
+              </select>
+            </label>
+            {!USE_STATION_MOCK && <StationDataStatus />}
+            {loading && <p className="map-search-message">정류소 목록 불러오는 중...</p>}
+            {error && <div role="alert" className="map-search-message"><p>{error}</p><button type="button" onClick={() => setReloadKey(n => n + 1)}>다시 시도</button></div>}
+            {!loading && !error && (
+              <>
+                <p className="map-search-message">검색 결과 {filteredStations.length}곳</p>
+                <div className="map-search-results">
+                  {filteredStations.slice(0, 30).map(station => (
+                    <button type="button" key={station.id}
+                      className={`map-search-option ${String(selectedId) === String(station.id) ? 'is-selected' : ''}`}
+                      onClick={() => handleSelectStation(station)}>
+                      <strong>{station.name}</strong>
+                      <small>{station.riskLabel || '위험도 미확인'}</small>
+                    </button>
+                  ))}
+                  {filteredStations.length === 0 && <p className="map-search-message">검색 결과가 없습니다.</p>}
+                  {filteredStations.length > 30 && <p className="map-search-message">검색 결과가 많아 처음 30곳만 표시합니다.</p>}
+                </div>
+              </>
             )}
-          </>
+          </section>
         )}
-      </section>
+      </div>
+
+      {/* Figma: 지도 위에 항상 접근할 수 있는 위험도 범례 */}
+      <aside className={`map-risk-guide ${showRiskLegend ? '' : 'is-collapsed'}`} aria-label="위험도 안내">
+        {showRiskLegend ? (
+          <>
+            <div className="map-risk-guide-content">
+              <div className="map-risk-levels">
+                <strong className="map-risk-heading">위험도 안내</strong>
+                <div className="map-risk-level"><span className="map-risk-symbol danger"><img src={busIconUrl} alt="" /></span><b>위험</b><small>노선 변경으로 이용 집중 예상</small></div>
+                <div className="map-risk-level"><span className="map-risk-symbol warning"><img src={busIconUrl} alt="" /></span><b>주의</b><small>이용 변화 관찰 필요</small></div>
+                <div className="map-risk-level"><span className="map-risk-symbol stable"><img src={busIconUrl} alt="" /></span><b>안정</b><small>노선 이용 영향이 적음</small></div>
+              </div>
+              <div className="map-risk-explainer">
+                <strong className="map-risk-heading">표시 정보</strong>
+                <span className="map-risk-bus-icon" aria-hidden="true"><img src={busIconUrl} alt="" /></span>
+                <small>버스 정류소 위치</small>
+                <small>아래 숫자는 평균 승차 인원</small>
+              </div>
+            </div>
+            <button type="button" className="map-risk-dismiss" onClick={() => setShowRiskLegend(false)} aria-label="위험도 안내 닫기">×</button>
+          </>
+        ) : (
+          <button type="button" className="map-risk-restore" onClick={() => setShowRiskLegend(true)}>위험도 안내 보기</button>
+        )}
+      </aside>
 
       {detailLoading && (
         <div
@@ -393,8 +357,8 @@ function MapPage() {
           style={{
             position: 'absolute',
             zIndex: 600,
-            top: 18,
-            right: 24,
+            top: 60,
+            right: 16,
             padding: 16,
             borderRadius: 12,
             background: '#fff',
@@ -410,8 +374,8 @@ function MapPage() {
           style={{
             position: 'absolute',
             zIndex: 600,
-            top: 18,
-            right: 24,
+            top: 60,
+            right: 16,
             padding: 16,
             borderRadius: 12,
             background: '#fff',
@@ -448,7 +412,7 @@ function App() {
       />
 
       <main className="main">
-        <Header />
+        {activeMenu !== 'map' && <Header />}
 
         {activeMenu === 'map' ? (
           <MapPage />

@@ -107,3 +107,14 @@
 @media (prefers-reduced-motion: reduce) {
   .ieum-marker { transition: none; }
 }
+
+/* Figma 정류소 원본 버스 SVG를 재사용하는 마커 */
+.ieum-marker { border-width: 3px; }
+.ieum-marker-bus { display: block; width: 30px; height: 34px; object-fit: contain; }
+.ieum-leaflet-icon .ieum-marker-count {
+  display: inline-block; margin: 1px auto 0; text-align: center;
+  position: relative; left: 50%; transform: translateX(-50%);
+  white-space: nowrap;
+}
+.ieum-marker.selected { outline: 3px solid #1c8b1d; outline-offset: 2px; }
+.ieum-leaflet-icon .ieum-marker { transform: none; }
