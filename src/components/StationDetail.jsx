@@ -1,5 +1,5 @@
-
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import busIcon from '../assets/figma/station-bus.svg'
 import './StationDetail.css'
 
 const TABS = [
@@ -8,274 +8,167 @@ const TABS = [
   { id: 'routes', label: '정류장 정보' },
 ]
 
-// 시연용 데이터입니다. 실제 용인시 공식 데이터가 아닙니다.
-const DEMO_STATION = {
-  id: '56582',
-  name: '죽전역 (마을)',
-  direction: '한신 길훈아파트 방면',
-  risk: 'stable',
-  riskLabel: '안정',
-  averageBoarding: 270,
-  averageAlighting: 190,
-  routeCount: 8,
-  transferRate: 69,
-  rank: null,
-  period: '2026.06.01 ~ 08.31',
-  routes: [],
+const RISK_INFO = {
+  stable: { label: '안정', message: '대체할 노선이 충분한 상태' },
+  warning: { label: '주의', message: '노선 연결성에 주의가 필요한 상태' },
+  danger: { label: '위험', message: '대중교통 접근성 개선 검토가 필요한 상태' },
+  unknown: { label: '자료 없음', message: '위험도 데이터가 없습니다' },
+}
+
+function readableNumber(value) {
+  const n = Number(value)
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(n)
+    ? n.toLocaleString('ko-KR') : '—'
 }
 
 function InfoRow({ label, value, suffix = '' }) {
+  const hasValue = value !== null && value !== undefined && value !== ''
   return (
     <div className="station-detail-info-row">
       <span>{label}</span>
-      <strong>
-        {value ?? '자료 없음'}
-        {value != null && suffix}
-      </strong>
+      <strong>{hasValue ? `${value}${suffix}` : '자료 없음'}</strong>
     </div>
   )
 }
 
-export default function StationDetail({
-  station = DEMO_STATION,
-  onClose = () => {},
-}) {
-  const [tab, setTab] = useState('basic')
-
-  const info = { ...DEMO_STATION, ...station }
-
-  const riskClass = ['stable', 'warning', 'danger'].includes(
-    info.risk
+function BusBadge({ risk = 'unknown', size = 'md' }) {
+  return (
+    <span className={`station-detail-bus-badge ${risk} ${size}`} aria-hidden="true">
+      <img src={busIcon} alt="" />
+    </span>
   )
-    ? info.risk
-    : 'unknown'
+}
+
+function Metric({ label, value, unit = '명', icon = true, emphasized = false }) {
+  return (
+    <div className={`station-detail-metric ${emphasized ? 'emphasized' : ''}`}>
+      {icon && <span className="station-detail-metric-icon" aria-hidden="true">▤</span>}
+      <div>
+        <span className="station-detail-metric-label">{label}</span>
+        <div className="station-detail-metric-value">
+          <strong>{readableNumber(value)}</strong>
+          {value != null && <small>{unit}</small>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TransferRing({ value }) {
+  const number = Number(value)
+  const valid = value !== null && value !== undefined && value !== '' && Number.isFinite(number)
+  const percent = valid ? Math.max(0, Math.min(100, number)) : 0
 
   return (
-    <aside
-      className="station-detail-panel"
-      aria-label={`${info.name} 정류소 상세정보`}
-    >
-      <header className="station-detail-header">
-        <div className="station-detail-topline">
-          <span className="station-detail-number">
-            정류소 번호 {info.id}
-          </span>
-
-          <button
-            type="button"
-            className="station-detail-close"
-            onClick={onClose}
-            aria-label="정류소 상세정보 닫기"
-          >
-            ×
-          </button>
-        </div>
-
-        <h2>{info.name}</h2>
-        <p className="station-detail-direction">
-          <span aria-hidden="true">↗</span>
-          {info.direction}
-        </p>
-
-        <div className="station-detail-period">
-          기간: {info.period}
-        </div>
-      </header>
-
-      <nav
-        className="station-detail-tabs"
-        aria-label="정류소 상세 탭"
+    <div className="station-detail-transfer">
+      <div className="station-detail-transfer-title">환승 비율</div>
+      <div
+        className={`station-detail-transfer-ring ${valid ? '' : 'empty'}`}
+        style={{ '--transfer-percent': `${percent}%` }}
+        role={valid ? 'progressbar' : undefined}
+        aria-label="환승 비율"
+        aria-valuemin={valid ? 0 : undefined}
+        aria-valuemax={valid ? 100 : undefined}
+        aria-valuenow={valid ? percent : undefined}
       >
-        {TABS.map(item => (
-          <button
-            key={item.id}
-            type="button"
-            className={tab === item.id ? 'active' : ''}
-            onClick={() => setTab(item.id)}
-            aria-pressed={tab === item.id}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
+        <span>{valid ? `${percent}%` : '—'}</span>
+      </div>
+      <p>{valid ? `승차 이용자 중 ${percent}%가 다른 노선으로 환승함` : '환승 데이터가 없습니다.'}</p>
+    </div>
+  )
+}
 
-      <div className="station-detail-content">
-        {tab === 'basic' && (
-          <>
-            <section className="station-detail-section">
-              <h3>정류소 위험도</h3>
+export default function StationDetail({ station, onClose = () => {} }) {
+  const [tab, setTab] = useState('basic')
+  const info = station ?? {}
+  const risk = RISK_INFO[info.risk] ? info.risk : 'unknown'
+  const riskInfo = RISK_INFO[risk]
+  const isDemo = String(info.id ?? '').startsWith('demo-') || info.isMock === true
 
-              <div className="station-detail-risk-card">
-                <span
-                  className={`station-detail-risk-dot ${riskClass}`}
-                />
-                <div>
-                  <strong>{info.riskLabel}</strong>
-                  <p>
-                    {info.risk === 'stable'
-                      ? '대체할 노선이 충분한 상태'
-                      : info.risk === 'warning'
-                        ? '노선 연결성에 주의가 필요한 상태'
-                        : info.risk === 'danger'
-                          ? '대중교통 접근성 개선 검토가 필요한 상태'
-                          : '위험도 데이터가 없습니다'}
-                  </p>
+  useEffect(() => { setTab('basic') }, [info.id])
+
+  return (
+    <aside className="station-detail-panel" aria-label={`${info.name ?? '정류소'} 상세정보`}>
+      <div className="station-detail-scroll">
+        <header className="station-detail-header">
+          <div className="station-detail-topline">
+            <span className="station-detail-number">정류소 번호 {info.id ?? '자료 없음'}</span>
+            <button type="button" className="station-detail-close" onClick={onClose} aria-label="상세정보 닫기">×</button>
+          </div>
+          <h2>{info.name ?? '정류소명 미확인'}</h2>
+          <p className="station-detail-direction"><span aria-hidden="true">↗</span> {info.direction ?? '방면 정보 없음'}</p>
+          {isDemo && <span className="station-detail-demo-label">시연용 정류소</span>}
+          <nav className="station-detail-tabs" aria-label="정류소 상세 탭">
+            {TABS.map(({ id, label }) => (
+              <button key={id} type="button" onClick={() => setTab(id)} className={tab === id ? 'active' : ''} aria-pressed={tab === id}>{label}</button>
+            ))}
+          </nav>
+        </header>
+
+        <div className="station-detail-content">
+          {tab === 'basic' && (
+            <>
+              <section className="station-detail-section station-detail-risk-section">
+                <h3>위험도</h3>
+                <div className={`station-detail-risk-card ${risk}`}>
+                  <BusBadge risk={risk} />
+                  <div className="station-detail-risk-text"><strong>{info.riskLabel ?? riskInfo.label}</strong><span>{riskInfo.message}</span></div>
                 </div>
-              </div>
-            </section>
+                <div className="station-detail-risk-meta">
+                  <InfoRow label="지나는 노선의 수" value={info.routeCount} suffix="개" />
+                  <InfoRow label="용인시 승차 순위" value={info.rank} suffix="위" />
+                </div>
+              </section>
 
+              <section className="station-detail-section station-detail-usage-section">
+                <h3>정류소 이용 현황</h3>
+                <div className="station-detail-usage-grid">
+                  <div className="station-detail-usage-metrics">
+                    <Metric label="하루 평균 승차" value={info.averageBoarding} emphasized />
+                    <Metric label="하루 평균 하차" value={info.averageAlighting} emphasized />
+                    <InfoRow label="용인시 승차 순위" value={info.rank} suffix="위" />
+                  </div>
+                  <TransferRing value={info.transferRate} />
+                </div>
+              </section>
+            </>
+          )}
+
+          {tab === 'usage' && (
             <section className="station-detail-section">
               <h3>정류소 이용 현황</h3>
-
-              <div className="station-detail-stats">
-                <div>
-                  <span>하루 평균 승차</span>
-                  <strong>
-                    {info.averageBoarding?.toLocaleString()
-                      ?? '—'}
-                    <small>명</small>
-                  </strong>
+              <div className="station-detail-usage-grid">
+                <div className="station-detail-usage-metrics">
+                  <Metric label="하루 평균 승차" value={info.averageBoarding} emphasized />
+                  <Metric label="하루 평균 하차" value={info.averageAlighting} emphasized />
+                  <InfoRow label="지나는 노선의 수" value={info.routeCount} suffix="개" />
                 </div>
-
-                <div>
-                  <span>하루 평균 하차</span>
-                  <strong>
-                    {info.averageAlighting?.toLocaleString()
-                      ?? '—'}
-                    <small>명</small>
-                  </strong>
-                </div>
-              </div>
-
-              <InfoRow
-                label="지나는 노선의 수"
-                value={info.routeCount}
-                suffix="개"
-              />
-              <InfoRow
-                label="용인시 승차 순위"
-                value={info.rank}
-                suffix="위"
-              />
-            </section>
-          </>
-        )}
-
-        {tab === 'usage' && (
-          <>
-            <section className="station-detail-section">
-              <h3>정류소 사용 정보</h3>
-
-              <div className="station-detail-stats">
-                <div>
-                  <span>평균 승차 인원</span>
-                  <strong>
-                    {info.averageBoarding?.toLocaleString()
-                      ?? '—'}
-                    <small>명</small>
-                  </strong>
-                </div>
-
-                <div>
-                  <span>평균 하차 인원</span>
-                  <strong>
-                    {info.averageAlighting?.toLocaleString()
-                      ?? '—'}
-                    <small>명</small>
-                  </strong>
-                </div>
+                <TransferRing value={info.transferRate} />
               </div>
             </section>
+          )}
 
-            <section className="station-detail-section">
-              <h3>환승 비율</h3>
-
-              {info.transferRate != null ? (
-                <>
-                  <div className="station-detail-big-number">
-                    {info.transferRate}%
+          {tab === 'routes' && (
+            <>
+              <section className="station-detail-section">
+                <h3>정류장 정보</h3>
+                <InfoRow label="정류소 번호" value={info.id} />
+                <InfoRow label="지나는 노선의 수" value={info.routeCount} suffix="개" />
+                <InfoRow label="방면" value={info.direction} />
+              </section>
+              <section className="station-detail-section">
+                <h3>경유 노선</h3>
+                {Array.isArray(info.routes) && info.routes.length ? (
+                  <div className="station-detail-route-list">
+                    {info.routes.map((route, index) => <span className="station-detail-route" key={index}>{typeof route === 'string' ? route : route?.name ?? route?.number ?? '노선 정보'}</span>)}
                   </div>
-
-                  <div
-                    className="station-detail-progress"
-                    role="progressbar"
-                    aria-label="환승 비율"
-                    aria-valuenow={info.transferRate}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  >
-                    <div
-                      style={{
-                        width: `${Math.max(
-                          0,
-                          Math.min(100, info.transferRate)
-                        )}%`,
-                      }}
-                    />
-                  </div>
-
-                  <p className="station-detail-note">
-                    승차 이용자 중 다른 노선으로 환승한
-                    비율을 나타냅니다.
-                  </p>
-                </>
-              ) : (
-                <p className="station-detail-note">
-                  환승 비율 데이터가 없습니다.
-                </p>
-              )}
-            </section>
-          </>
-        )}
-
-        {tab === 'routes' && (
-          <>
-            <section className="station-detail-section">
-              <h3>정류장 정보</h3>
-
-              <InfoRow
-                label="정류소 번호"
-                value={info.id}
-              />
-              <InfoRow
-                label="운행 노선 수"
-                value={info.routeCount}
-                suffix="개"
-              />
-              <InfoRow
-                label="방면"
-                value={info.direction}
-              />
-            </section>
-
-            <section className="station-detail-section">
-              <h3>경유 노선</h3>
-
-              {info.routes?.length > 0 ? (
-                <div className="station-detail-route-list">
-                  {info.routes.map((route, index) => (
-                    <span
-                      key={`${route}-${index}`}
-                      className="station-detail-route"
-                    >
-                      {route}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="station-detail-note">
-                  노선별 상세 정보는 API 연결 후
-                  표시됩니다.
-                </p>
-              )}
-            </section>
-          </>
-        )}
+                ) : <p className="station-detail-note">경유 노선 상세 데이터가 없습니다.</p>}
+              </section>
+            </>
+          )}
+        </div>
+        <footer className="station-detail-footer">{isDemo ? '현재 표시된 값은 시연용 데이터입니다.' : '제공된 정류소 데이터 기준으로 표시됩니다.'}</footer>
       </div>
-
-      <footer className="station-detail-footer">
-        현재 표시된 값은 시연용 데이터입니다.
-      </footer>
     </aside>
   )
 }

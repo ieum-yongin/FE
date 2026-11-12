@@ -138,7 +138,7 @@ export default function AlertsPage() {
           수지구
         </span>
 
-        {filtered.map(alert => (
+        {(USE_MOCK ? filtered : []).map(alert => (
           <button
             type="button"
             key={alert.id}
@@ -163,7 +163,7 @@ export default function AlertsPage() {
       </div>
 
       <div className="alerts-map-message">
-        ⓘ 지도: 용인 전체 · 급변 정류소만 표시됐어요
+        {USE_MOCK ? "ⓘ 시연용 정류소 위치입니다" : "ⓘ 실제 알림의 좌표 표시는 백엔드 데이터 연결 후 제공됩니다"}
       </div>
 
       <span className="alerts-demo-label">
@@ -246,7 +246,7 @@ export default function AlertsPage() {
             !error &&
             visible.length === 0 && (
               <p className="alerts-no-results">
-                검색 결과가 없어요.
+                {!USE_MOCK && alerts.length === 0 ? '등록된 급변 알림이 없습니다.' : '검색 결과가 없어요.'}
               </p>
             )}
 
@@ -273,7 +273,7 @@ export default function AlertsPage() {
                   <span>
                     {alert.period}
                     {' / 평소 대비 '}
-                    {alert.ratio}배
+                    {alert.ratio == null ? '자료 없음' : `${alert.ratio}배`}
                   </span>
                 </span>
 

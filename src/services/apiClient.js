@@ -24,7 +24,9 @@ export async function apiRequest(
     ? endpoint
     : `/${endpoint}`
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     method,
     headers: {
@@ -37,7 +39,11 @@ export async function apiRequest(
     ...(body !== undefined
       ? { body: JSON.stringify(body) }
       : {}),
-  })
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
+    throw new ApiError('백엔드에 연결하지 못했습니다. 서버 주소, HTTPS 및 CORS 허용 설정을 확인해 주세요.', 0)
+  }
 
   const contentType =
     response.headers.get('content-type') || ''

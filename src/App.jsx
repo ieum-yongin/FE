@@ -2,7 +2,6 @@
 import SimulationPage from './components/SimulationPage'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AlertsPage from './components/AlertsPage'
-import StationDataStatus from './components/StationDataStatus'
 import StationDetail from './components/StationDetail'
 import StationMap from './components/StationMap'
 import BrandLogo from './components/BrandLogo'
@@ -128,10 +127,15 @@ function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCl
             setSelectedStation({
               ...listStation,
               ...data,
-              latitude:
-                data.latitude ?? listStation?.latitude,
-              longitude:
-                data.longitude ?? listStation?.longitude,
+              // 상세 API에서 누락된 필드는 지도/목록 정보를 보존합니다.
+              risk: data.risk !== 'unknown' ? data.risk : (listStation?.risk ?? 'unknown'),
+              riskLabel: data.risk !== 'unknown' ? data.riskLabel : (listStation?.riskLabel ?? '자료 없음'),
+              averageBoarding: data.averageBoarding ?? listStation?.averageBoarding ?? null,
+              averageAlighting: data.averageAlighting ?? listStation?.averageAlighting ?? null,
+              routeCount: data.routeCount ?? listStation?.routeCount ?? null,
+              transferRate: data.transferRate ?? listStation?.transferRate ?? null,
+              latitude: data.latitude ?? listStation?.latitude ?? null,
+              longitude: data.longitude ?? listStation?.longitude ?? null,
             })
           } else {
             setDetailError('정류소를 찾지 못했습니다.')
@@ -171,6 +175,12 @@ function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCl
         selectedStation={selectedStation}
         onSelect={handleSelectStation}
       />
+
+      {!USE_STATION_MOCK && stations.length === 0 && (
+        <div role="status" style={{ position: 'absolute', top: 72, left: 20, zIndex: 600, padding: '12px 16px', background: 'white', borderRadius: 12, boxShadow: '0 2px 12px #0002', fontSize: 14 }}>
+          등록된 정류소 데이터가 없습니다. 백엔드 데이터 등록 후 표시됩니다.
+        </div>
+      )}
 
       {/* Figma: 지도 위에 항상 접근할 수 있는 위험도 범례 */}
       <aside className={`map-risk-guide ${showRiskLegend ? '' : 'is-collapsed'}`} aria-label="위험도 안내">
@@ -383,7 +393,7 @@ function App() {
                       <option value="unknown">미분류</option>
                     </select>
                   </label>
-                  {!USE_STATION_MOCK && <StationDataStatus />}
+                  {!USE_STATION_MOCK && <p className="map-search-message">실제 API 데이터 모드</p>}
                   {loading && <p className="map-search-message">정류소 목록 불러오는 중...</p>}
                   {error && <div role="alert" className="map-search-message"><p>{error}</p><button type="button" onClick={() => setReloadKey(n => n + 1)}>다시 시도</button></div>}
                   {!loading && !error && (
