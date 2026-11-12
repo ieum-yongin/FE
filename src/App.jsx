@@ -82,67 +82,19 @@ function Sidebar({ activeMenu, onMenuChange, collapsed, onToggle }) {
   )
 }
 
-function Header() {
+function Header({ children }) {
   return (
     <header className="header">
-      <div>
-        <strong>용인시 교통 서비스</strong>
-        <span className="header-subtitle">
-          시민을 위한 교통 정보
-        </span>
-      </div>
-      <span className="header-status">개발 중</span>
+      {children ?? null}
     </header>
   )
 }
 
-function MapPage() {
-  const [stations, setStations] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [reloadKey, setReloadKey] = useState(0)
-
-  const [query, setQuery] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
-  const searchAreaRef = useRef(null)
-  const searchInputRef = useRef(null)
-  const [riskFilter, setRiskFilter] = useState('all')
-  const [showRiskLegend, setShowRiskLegend] = useState(true)
-  const [selectedId, setSelectedId] = useState(null)
+function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCloseStation }) {
   const [selectedStation, setSelectedStation] = useState(null)
   const [detailError, setDetailError] = useState('')
   const [detailLoading, setDetailLoading] = useState(false)
-
-  useEffect(() => {
-    const controller = new AbortController()
-
-    async function loadStations() {
-      setLoading(true)
-      setError('')
-
-      try {
-        const data = await getStationList({
-          signal: controller.signal,
-        })
-
-        if (!controller.signal.aborted) {
-          setStations(data)
-        }
-      } catch (err) {
-        if (!controller.signal.aborted) {
-          setError(err.message)
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    loadStations()
-
-    return () => controller.abort()
-  }, [reloadKey])
+  const [showRiskLegend, setShowRiskLegend] = useState(true)
 
   useEffect(() => {
     if (selectedId == null) {
@@ -201,130 +153,24 @@ function MapPage() {
     return () => controller.abort()
   }, [selectedId, stations])
 
-  const filteredStations = useMemo(() => {
-    const search = query.trim().toLowerCase()
-
-    return stations.filter(station => {
-      const searchable = (
-        String(station.name ?? '') +
-        ' ' +
-        String(station.id ?? '')
-      ).toLowerCase()
-
-      const matchesSearch = searchable.includes(search)
-      const matchesRisk =
-        riskFilter === 'all' ||
-        station.risk === riskFilter
-
-      return matchesSearch && matchesRisk
-    })
-  }, [stations, query, riskFilter])
-
-  // 검색창 외부(지도 포함)를 누르면 결과 패널을 닫습니다.
-  // 내부 필터 및 결과 클릭은 정상적으로 동작하도록 유지합니다.
-  useEffect(() => {
-    if (!searchOpen) return
-
-    function handleOutsidePointer(event) {
-      if (!searchAreaRef.current?.contains(event.target)) {
-        setSearchOpen(false)
-      }
-    }
-
-    document.addEventListener('pointerdown', handleOutsidePointer)
-    return () => document.removeEventListener('pointerdown', handleOutsidePointer)
-  }, [searchOpen])
-
-  function handleSelectStation(station) {
-    setSelectedId(station.id)
-    setSearchOpen(false)
-    searchInputRef.current?.blur()
-  }
-
   function closeDetail() {
-    setSelectedId(null)
+    onCloseStation()
     setSelectedStation(null)
     setDetailError('')
   }
 
+  function handleSelectStation(station) {
+    onSelectStation(station.id)
+  }
+
   return (
-    <div
-      className="map-page"
-      style={{
-        position: 'relative',
-        height: '100vh',
-        minHeight: 520,
-        overflow: 'hidden',
-      }}
-    >
+    <div className="map-screen">
+      <div className="map-page">
       <StationMap
         stations={filteredStations}
         selectedStation={selectedStation}
         onSelect={handleSelectStation}
       />
-
-      {/* 지도 상단의 검색은 입력 중에만 결과 목록을 표시 */}
-      <div className="map-search-area" ref={searchAreaRef}>
-        <label className="map-top-search">
-          <input
-            ref={searchInputRef}
-            type="search"
-            value={query}
-            onFocus={() => setSearchOpen(true)}
-            onChange={event => { setQuery(event.target.value); setSearchOpen(true) }}
-            onKeyDown={event => {
-              if (event.key === 'Escape') {
-                setSearchOpen(false)
-                event.currentTarget.blur()
-              }
-            }}
-            aria-expanded={searchOpen}
-            aria-controls="map-station-search-results"
-            aria-haspopup="listbox"
-            placeholder="정류소명 또는 번호"
-            aria-label="정류소명 또는 번호 검색"
-          />
-          <FigmaUiIcon name="search" className="map-top-search-icon" />
-        </label>
-        {searchOpen && (
-          <section id="map-station-search-results" className="map-search-dropdown" aria-label="정류소 검색 결과">
-            <div className="map-search-dropdown-head">
-              <strong>정류소 검색</strong>
-              <button type="button" onClick={() => setSearchOpen(false)} aria-label="검색 결과 닫기">×</button>
-            </div>
-            <label className="map-risk-filter-label">
-              위험도
-              <select value={riskFilter} onChange={event => setRiskFilter(event.target.value)} aria-label="위험도 필터">
-                <option value="all">전체 위험도</option>
-                <option value="danger">위험</option>
-                <option value="warning">주의</option>
-                <option value="stable">안정</option>
-                <option value="unknown">미분류</option>
-              </select>
-            </label>
-            {!USE_STATION_MOCK && <StationDataStatus />}
-            {loading && <p className="map-search-message">정류소 목록 불러오는 중...</p>}
-            {error && <div role="alert" className="map-search-message"><p>{error}</p><button type="button" onClick={() => setReloadKey(n => n + 1)}>다시 시도</button></div>}
-            {!loading && !error && (
-              <>
-                <p className="map-search-message">검색 결과 {filteredStations.length}곳</p>
-                <div className="map-search-results">
-                  {filteredStations.slice(0, 30).map(station => (
-                    <button type="button" key={station.id}
-                      className={`map-search-option ${String(selectedId) === String(station.id) ? 'is-selected' : ''}`}
-                      onClick={() => handleSelectStation(station)}>
-                      <strong>{station.name}</strong>
-                      <small>{station.riskLabel || '위험도 미확인'}</small>
-                    </button>
-                  ))}
-                  {filteredStations.length === 0 && <p className="map-search-message">검색 결과가 없습니다.</p>}
-                  {filteredStations.length > 30 && <p className="map-search-message">검색 결과가 많아 처음 30곳만 표시합니다.</p>}
-                </div>
-              </>
-            )}
-          </section>
-        )}
-      </div>
 
       {/* Figma: 지도 위에 항상 접근할 수 있는 위험도 범례 */}
       <aside className={`map-risk-guide ${showRiskLegend ? '' : 'is-collapsed'}`} aria-label="위험도 안내">
@@ -394,6 +240,7 @@ function MapPage() {
           onClose={closeDetail}
         />
       )}
+      </div>
     </div>
   )
 }
@@ -401,21 +248,174 @@ function MapPage() {
 function App() {
   const [activeMenu, setActiveMenu] = useState('map')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [stations, setStations] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [riskFilter, setRiskFilter] = useState('all')
+  const [selectedId, setSelectedId] = useState(null)
+  const searchAreaRef = useRef(null)
+  const searchInputRef = useRef(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadStations() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const data = await getStationList({
+          signal: controller.signal,
+        })
+
+        if (!controller.signal.aborted) {
+          setStations(data)
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setError(err.message)
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadStations()
+
+    return () => controller.abort()
+  }, [reloadKey])
+
+  const filteredStations = useMemo(() => {
+    const search = query.trim().toLowerCase()
+
+    return stations.filter(station => {
+      const searchable = (
+        String(station.name ?? '') +
+        ' ' +
+        String(station.id ?? '')
+      ).toLowerCase()
+
+      const matchesSearch = searchable.includes(search)
+      const matchesRisk =
+        riskFilter === 'all' ||
+        station.risk === riskFilter
+
+      return matchesSearch && matchesRisk
+    })
+  }, [stations, query, riskFilter])
+
+  useEffect(() => {
+    if (!searchOpen) return
+
+    function handleOutsidePointer(event) {
+      if (!searchAreaRef.current?.contains(event.target)) {
+        setSearchOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handleOutsidePointer)
+    return () => document.removeEventListener('pointerdown', handleOutsidePointer)
+  }, [searchOpen])
+
+  function handleSelectStation(station) {
+    setSelectedId(station.id)
+    setActiveMenu('map')
+    setSearchOpen(false)
+    searchInputRef.current?.blur()
+  }
+
+  function handleMenuChange(nextMenu) {
+    setActiveMenu(nextMenu)
+    setSearchOpen(false)
+  }
 
   return (
     <div className="app">
       <Sidebar
         activeMenu={activeMenu}
-        onMenuChange={setActiveMenu}
+        onMenuChange={handleMenuChange}
         collapsed={sidebarCollapsed}
         onToggle={setSidebarCollapsed}
       />
-
       <main className="main">
-        {activeMenu !== 'map' && <Header />}
-
+        <Header>
+          <div className="header-tools">
+            <div className="map-search-area header-map-search" ref={searchAreaRef}>
+              <label className="map-top-search">
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={query}
+                  onFocus={() => setSearchOpen(true)}
+                  onChange={event => { setQuery(event.target.value); setSearchOpen(true) }}
+                  onKeyDown={event => {
+                    if (event.key === 'Escape') {
+                      setSearchOpen(false)
+                      event.currentTarget.blur()
+                    }
+                  }}
+                  aria-expanded={searchOpen}
+                  aria-controls="map-station-search-results"
+                  aria-haspopup="listbox"
+                  placeholder="정류소명 또는 번호"
+                  aria-label="정류소명 또는 번호 검색"
+                />
+                <FigmaUiIcon name="search" className="map-top-search-icon" />
+              </label>
+              {searchOpen && (
+                <section id="map-station-search-results" className="map-search-dropdown" aria-label="정류소 검색 결과">
+                  <div className="map-search-dropdown-head">
+                    <strong>정류소 검색</strong>
+                    <button type="button" onClick={() => setSearchOpen(false)} aria-label="검색 결과 닫기">×</button>
+                  </div>
+                  <label className="map-risk-filter-label">
+                    위험도
+                    <select value={riskFilter} onChange={event => setRiskFilter(event.target.value)} aria-label="위험도 필터">
+                      <option value="all">전체 위험도</option>
+                      <option value="danger">위험</option>
+                      <option value="warning">주의</option>
+                      <option value="stable">안정</option>
+                      <option value="unknown">미분류</option>
+                    </select>
+                  </label>
+                  {!USE_STATION_MOCK && <StationDataStatus />}
+                  {loading && <p className="map-search-message">정류소 목록 불러오는 중...</p>}
+                  {error && <div role="alert" className="map-search-message"><p>{error}</p><button type="button" onClick={() => setReloadKey(n => n + 1)}>다시 시도</button></div>}
+                  {!loading && !error && (
+                    <>
+                      <p className="map-search-message">검색 결과 {filteredStations.length}곳</p>
+                      <div className="map-search-results">
+                        {filteredStations.slice(0, 30).map(station => (
+                          <button type="button" key={station.id}
+                            className={`map-search-option ${String(selectedId) === String(station.id) ? 'is-selected' : ''}`}
+                            onClick={() => handleSelectStation(station)}>
+                            <strong>{station.name}</strong>
+                            <small>{station.riskLabel || '위험도 미확인'}</small>
+                          </button>
+                        ))}
+                        {filteredStations.length === 0 && <p className="map-search-message">검색 결과가 없습니다.</p>}
+                        {filteredStations.length > 30 && <p className="map-search-message">검색 결과가 많아 처음 30곳만 표시합니다.</p>}
+                      </div>
+                    </>
+                  )}
+                </section>
+              )}
+            </div>
+          </div>
+        </Header>
         {activeMenu === 'map' ? (
-          <MapPage />
+          <MapPage
+            stations={stations}
+            filteredStations={filteredStations}
+            selectedId={selectedId}
+            onSelectStation={setSelectedId}
+            onCloseStation={() => setSelectedId(null)}
+          />
         ) : activeMenu === 'alert' ? (
           <AlertsPage />
         ) : (
