@@ -1,13 +1,9 @@
 
-const BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  'http://localhost:8000'
-).replace(/\/$/, '')
+import { api, USE_MOCK } from './apiClient'
 
-export const USE_SIMULATION_MOCK =
-  import.meta.env.VITE_USE_MOCK !== 'false'
+export const USE_SIMULATION_MOCK = USE_MOCK
 
-// 실제 용인시 노선 데이터가 아닌 테스트 데이터
+// 실제 용인시 노선이 아닌 시연용 데이터
 const MOCK_ROUTES = [
   {
     id: 'demo-route-1',
@@ -39,34 +35,20 @@ const MOCK_ROUTES = [
   },
 ]
 
-async function request(path, options = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...(options.body
-        ? { 'Content-Type': 'application/json' }
-        : {}),
-      ...options.headers,
-    },
-  })
-
-  if (!response.ok) {
-    throw new Error(
-      `API 요청 실패 (HTTP ${response.status})`
-    )
+// 백엔드 응답 구조가 확정되면 필드명 조정
+export function normalizeRoute(route) {
+  if (!route || typeof route !== 'object' || Array.isArray(route)) {
+    throw new Error('노선 데이터 형식이 올바르지 않습니다.')
   }
 
-  if (response.status === 204) {
-    return null
+  const id = route.id ?? route.route_id
+
+  if (id == null) {
+    throw new Error('노선 ID가 없습니다.')
   }
 
-  return response.json()
-}
-
-function normalizeRoute(route) {
   return {
-    id: route.id ?? route.route_id,
+    id,
     number: String(
       route.number ??
       route.route_number ??
@@ -96,7 +78,7 @@ export async function getRoutes({ signal } = {}) {
     return MOCK_ROUTES.map(route => ({ ...route }))
   }
 
-  const data = await request('/api/routes/', { signal })
+  const data = await api.get('/api/routes/', { signal })
 
   const items = Array.isArray(data)
     ? data
@@ -122,7 +104,9 @@ export async function createSimulation(
 
   if (USE_SIMULATION_MOCK) {
     const routes = MOCK_ROUTES.filter(route =>
-      routeIds.some(id => String(id) === String(route.id))
+      routeIds.some(
+        id => String(id) === String(route.id)
+      )
     )
 
     return {
@@ -136,31 +120,34 @@ export async function createSimulation(
     }
   }
 
-  // 임시 요청 본문: 백엔드 팀과 필드명 협의 필요
-  return request('/api/simulations/', {
-    method: 'POST',
-    signal,
-    body: JSON.stringify({
+  // 임시 요청 형식: 백엔드 API 명세 확인 후 확정
+  return api.post(
+    '/api/simulations/',
+    {
       route_ids: routeIds,
-    }),
-  })
+    },
+    { signal }
+  )
 }
 
-// 저장된 시뮬레이션 조회
-export async function getSimulation(id, { signal } = {}) {
+// 시뮬레이션 상세 조회
+export async function getSimulation(
+  id,
+  { signal } = {}
+) {
   if (USE_SIMULATION_MOCK) {
     throw new Error(
       'Mock 모드에서는 저장된 시뮬레이션을 조회하지 않습니다.'
     )
   }
 
-  return request(
+  return api.get(
     `/api/simulations/${encodeURIComponent(id)}/`,
     { signal }
   )
 }
 
-// 영향을 받는 정류소 조회
+// 영향을 받는 정류소 목록
 export async function getSimulationStops(
   id,
   { signal } = {}
@@ -169,7 +156,7 @@ export async function getSimulationStops(
     return []
   }
 
-  return request(
+  return api.get(
     `/api/simulations/${encodeURIComponent(id)}/stops/`,
     { signal }
   )

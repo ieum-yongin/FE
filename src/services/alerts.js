@@ -1,73 +1,49 @@
 
 import { mockAlerts } from './mockAlerts'
+import { api, USE_MOCK } from './apiClient'
 
-const BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL || ''
-).replace(/\/$/, '')
+// 기존 AlertsPage.jsx와의 호환성을 위해 유지
+export { USE_MOCK }
 
-export const USE_MOCK =
-  import.meta.env.VITE_USE_MOCK !== 'false'
-
+// 알림 목록 조회
 export async function getAlerts({ signal } = {}) {
   if (USE_MOCK) {
     return mockAlerts.map(alert => ({ ...alert }))
   }
 
-  if (!BASE_URL) {
-    throw new Error('백엔드 API 주소가 설정되지 않았습니다.')
-  }
+  const data = await api.get('/api/alerts/', {
+    signal,
+  })
 
-  const response = await fetch(
-    `${BASE_URL}/api/alerts/`,
-    {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-      signal,
-    }
-  )
-
-  if (!response.ok) {
-    throw new Error(
-      `알림 목록 조회 실패: ${response.status}`
-    )
-  }
-
-  const data = await response.json()
-
+  // 배열 또는 Django REST Framework 페이지네이션 응답 지원
   const alerts = Array.isArray(data)
     ? data
-    : data.results
+    : data?.results
 
   if (!Array.isArray(alerts)) {
-    throw new Error('알림 데이터 형식이 올바르지 않습니다.')
+    throw new Error(
+      '알림 목록 API 응답 형식을 확인해야 합니다.'
+    )
   }
 
   return alerts
 }
 
-export async function getAlertDetail(id, { signal } = {}) {
+// 알림 상세 조회
+export async function getAlertDetail(
+  id,
+  { signal } = {}
+) {
   if (USE_MOCK) {
-    return mockAlerts.find(
-      alert => String(alert.id) === String(id)
-    ) ?? null
+    const alert = mockAlerts.find(
+      item => String(item.id) === String(id)
+    )
+
+    return alert ? { ...alert } : null
   }
 
-  if (!BASE_URL) {
-    throw new Error('백엔드 API 주소가 설정되지 않았습니다.')
-  }
-
-  const response = await fetch(
-    `${BASE_URL}/api/alerts/${encodeURIComponent(id)}/`,
+  return api.get(
+    `/api/alerts/${encodeURIComponent(id)}/`,
     { signal }
   )
-
-  if (!response.ok) {
-    throw new Error(
-      `알림 상세 조회 실패: ${response.status}`
-    )
-  }
-
-  return response.json()
 }
