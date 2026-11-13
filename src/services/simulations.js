@@ -1,5 +1,5 @@
 
-import { api, USE_MOCK } from './apiClient'
+import { api, API_BASE_URL, USE_MOCK } from './apiClient'
 
 export const USE_SIMULATION_MOCK = USE_MOCK
 
@@ -147,17 +147,75 @@ export async function getSimulation(
   )
 }
 
-// 영향을 받는 정류소 목록
-export async function getSimulationStops(
-  id,
-  { signal } = {}
-) {
-  if (USE_SIMULATION_MOCK) {
-    return []
+// 결과 API는 위험도가 변경된 정류소만 페이지 단위로 반환합니다.
+// 모든 페이지를 읽어야 지도 마커와 더보기 목록이 누락되지 않습니다.
+export async function getSimulationStops(id, { signal } = {}) {
+  if (USE_SIMULATION_MOCK) return { count: 0, results: [] }
+  const endpoint = `/api/simulations/${encodeURIComponent(id)}/stops/`
+  const first = await api.get(`${endpoint}?page=1&page_size=100`, { signal })
+  if (Array.isArray(first)) return { count: first.length, results: first }
+  if (!Array.isArray(first?.results)) throw new Error('정류소별 시뮬레이션 결과 형식이 올바르지 않습니다.')
+  const count = Number(first.count)
+  const pageSize = Number(first.page_size) || 100
+  const pages = Number.isFinite(count) && count > 0 ? Math.ceil(count / pageSize) : 1
+  if (pages > 100) throw new Error('시뮬레이션 정류소 페이지 수가 너무 많습니다.')
+  const results = [...first.results]
+  for (let page = 2; page <= pages; page++) {
+    const next = await api.get(`${endpoint}?page=${page}&page_size=100`, { signal })
+    if (!Array.isArray(next?.results)) throw new Error('추가 정류소 결과 형식이 올바르지 않습니다.')
+    results.push(...next.results)
+  }
+  return { count: Number.isFinite(count) ? count : results.length, results }
+}
+
+// 바이너리 PDF 다운로드는 JSON 전용 api.get() 대신 fetch로 처리합니다.
+export async function downloadSimulationPdf(id, { signal } = {}) {
+  if (USE_SIMULATION_MOCK) throw new Error('시연용 모드에서는 PDF 보고서를 다운로드할 수 없습니다.')
+  if (id == null || !/^\d+$/.test(String(id)) || Number(id) < 1) {
+    throw new Error('유효한 시뮬레이션 ID가 없습니다.')
   }
 
-  return api.get(
-    `/api/simulations/${encodeURIComponent(id)}/stops/`,
-    { signal }
-  )
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}/api/simulations/${encodeURIComponent(id)}/export/`, {
+      method: 'GET',
+      headers: { Accept: '*/*' },
+      signal,
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
+    throw new Error('PDF 서버에 연결하지 못했습니다. 네트워크 상태를 확인해 주세요.')
+  }
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type') || ''
+    const data = contentType.includes('application/json')
+      ? await response.json().catch(() => null)
+      : null
+    const messages = {
+      SIMULATION_NOT_FOUND: '시뮬레이션 결과를 찾을 수 없습니다.',
+      SIMULATION_NOT_COMPLETED: '분석이 완료된 후 PDF를 저장할 수 있습니다.',
+      INVALID_REQUEST: 'PDF 다운로드 요청값을 확인해 주세요.',
+    }
+    throw new Error(data?.message || messages[data?.code] || `PDF 다운로드 실패 (HTTP ${response.status})`)
+  }
+
+  const blob = await response.blob()
+  if (!blob.size || !(blob.type.includes('pdf') || (response.headers.get('content-type') || '').includes('pdf'))) {
+    throw new Error('서버 응답이 PDF 파일이 아닙니다.')
+  }
+
+  const objectUrl = URL.createObjectURL(blob)
+  try {
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    // 브라우저 간 일관된 안전한 파일명 사용
+    anchor.download = `simulation-${id}.pdf`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+  } finally {
+    // 다운로드 시작 후 브라우저가 Blob URL을 읽을 수 있도록 지연 해제
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+  }
 }

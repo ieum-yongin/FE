@@ -89,7 +89,7 @@ function Header({ children }) {
   )
 }
 
-function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCloseStation }) {
+function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCloseStation, loading, error, onRetry, query, riskFilter }) {
   const [selectedStation, setSelectedStation] = useState(null)
   const [detailError, setDetailError] = useState('')
   const [detailLoading, setDetailLoading] = useState(false)
@@ -176,9 +176,33 @@ function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCl
         onSelect={handleSelectStation}
       />
 
-      {!USE_STATION_MOCK && stations.length === 0 && (
-        <div role="status" style={{ position: 'absolute', top: 72, left: 20, zIndex: 600, padding: '12px 16px', background: 'white', borderRadius: 12, boxShadow: '0 2px 12px #0002', fontSize: 14 }}>
-          등록된 정류소 데이터가 없습니다. 백엔드 데이터 등록 후 표시됩니다.
+      {!USE_STATION_MOCK && (
+        <div className="map-data-status-area" aria-live="polite">
+          {loading ? (
+            <div className="map-data-status" role="status">
+              <span className="map-data-status-spinner" aria-hidden="true" />
+              <div><strong>정류소 정보를 불러오는 중</strong><p>서버에서 지도 데이터를 확인하고 있어요.</p></div>
+            </div>
+          ) : error ? (
+            <div className="map-data-status" role="alert">
+              <span className="map-data-status-symbol" aria-hidden="true">!</span>
+              <div><strong>정류소 정보를 불러오지 못했어요</strong><p>{error}</p>
+                <button className="map-data-retry" type="button" onClick={onRetry}>다시 시도</button>
+              </div>
+            </div>
+          ) : stations.length === 0 ? (
+            <div className="map-data-status" role="status">
+              <span className="map-data-status-symbol" aria-hidden="true">⌕</span>
+              <div><strong>등록된 정류소가 없습니다</strong><p>현재 서버에 정류소 데이터가 없어요. 데이터 등록 후 지도에 표시됩니다.</p>
+                <button className="map-data-retry" type="button" onClick={onRetry}>새로고침</button>
+              </div>
+            </div>
+          ) : filteredStations.length === 0 ? (
+            <div className="map-data-status" role="status">
+              <span className="map-data-status-symbol" aria-hidden="true">⌕</span>
+              <div><strong>검색 조건에 맞는 정류소가 없습니다</strong><p>{query.trim() || riskFilter !== 'all' ? '검색어나 위험도 필터를 변경해 보세요.' : '표시할 정류소가 없습니다.'}</p></div>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -425,6 +449,11 @@ function App() {
             selectedId={selectedId}
             onSelectStation={setSelectedId}
             onCloseStation={() => setSelectedId(null)}
+            loading={loading}
+            error={error}
+            onRetry={() => setReloadKey(key => key + 1)}
+            query={query}
+            riskFilter={riskFilter}
           />
         ) : activeMenu === 'alert' ? (
           <AlertsPage />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import StationMap from './StationMap'
 import SimulationResult from './SimulationResult'
-import { getStationList } from '../services/stationApi'
+import { getStationMap } from '../services/stationApi'
 import { getRoutes, createSimulation, getSimulation, getSimulationStops, USE_SIMULATION_MOCK } from '../services/simulations'
 import FigmaUiIcon from './FigmaUiIcon'
 import './SimulationPage.css'
@@ -24,6 +24,7 @@ export default function SimulationPage() {
   const [result, setResult] = useState(null)
   const [resultRoutes, setResultRoutes] = useState([])
   const [running, setRunning] = useState(false)
+  const [focusedStop, setFocusedStop] = useState(null)
   const [simulationError, setSimulationError] = useState('')
   const searchRef = useRef(null)
 
@@ -34,9 +35,13 @@ export default function SimulationPage() {
       setRoutesError('')
       try {
         const data = await getRoutes({ signal: controller.signal })
-        if (!controller.signal.aborted) setRoutes(data)
+        if (!controller.signal.aborted) {
+          setRoutes(data)
+          setSelectedIds(current => current.filter(id => data.some(route => String(route.id) === String(id))))
+          setSuspendedIds(current => current.filter(id => data.some(route => String(route.id) === String(id))))
+        }
       } catch (error) {
-        if (!controller.signal.aborted) setRoutesError(error.message)
+        if (!controller.signal.aborted) setRoutesError(error?.message || '노선 목록을 불러오지 못했습니다.')
       } finally {
         if (!controller.signal.aborted) setRoutesLoading(false)
       }
@@ -47,7 +52,7 @@ export default function SimulationPage() {
 
   useEffect(() => {
     const controller = new AbortController()
-    getStationList({ signal: controller.signal })
+    getStationMap({ signal: controller.signal })
       .then(data => { if (!controller.signal.aborted) setMapStations(data) })
       .catch(() => { /* 지도 데이터가 없어도 시뮬레이션 입력은 사용할 수 있음 */ })
     return () => controller.abort()
@@ -66,6 +71,7 @@ export default function SimulationPage() {
 
   function clearResult() {
     setResult(null)
+    setFocusedStop(null)
     setResultRoutes([])
     setSimulationError('')
   }
@@ -103,6 +109,7 @@ export default function SimulationPage() {
     setRunning(true)
     setSimulationError('')
     setResult(null)
+    setFocusedStop(null)
     const snapshot = selectedRoutes.filter(route => suspendedIds.some(id => String(route.id) === String(id)))
     try {
       const created = await createSimulation(suspendedIds)
@@ -118,7 +125,10 @@ export default function SimulationPage() {
           try {
             const response = await getSimulationStops(id)
             const stops = Array.isArray(response) ? response : response?.results
-            if (Array.isArray(stops)) finalResult.affectedStops = stops
+            if (Array.isArray(stops)) {
+              finalResult.affectedStops = stops
+              finalResult.stopsCount = response?.count ?? stops.length
+            }
           } catch (error) { finalResult.stopsFetchError = error.message }
         }
       }
@@ -134,7 +144,7 @@ export default function SimulationPage() {
   return (
     <div className="simulation-page">
       <div className="simulation-map-background">
-        <StationMap stations={mapStations} onSelect={() => {}} />
+        <StationMap stations={mapStations} onSelect={() => {}} simulationStops={result?.status === 'COMPLETED' ? result.affectedStops : null} focusedSimulationStop={focusedStop} onSimulationStopSelect={setFocusedStop} />
       </div>
       <section className="simulation-panel" aria-label="만약에 시뮬레이션">
         <div className="simulation-panel-scroll">
@@ -150,7 +160,7 @@ export default function SimulationPage() {
             <div className="simulation-search-block" ref={searchRef}>
               <label className="simulation-search-wrap" htmlFor="simulation-route-search">
                 <FigmaUiIcon name="search" className="simulation-search-icon" />
-                <input id="simulation-route-search" type="search" placeholder="노선 번호 검색" value={query} disabled={running}
+                <input id="simulation-route-search" type="search" placeholder="노선 번호 검색" value={query} disabled={running || routesLoading || !!routesError || routes.length === 0}
                   onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true) }} />
               </label>
               {searchOpen && !routesLoading && !routesError && (
@@ -161,13 +171,34 @@ export default function SimulationPage() {
                       <span><strong>{route.number}</strong><small>{routeDescription(route)}</small></span>
                       <span>선택 +</span>
                     </button>
-                  )) : <p className="simulation-helper">검색 결과가 없습니다.</p>}
+                  )) : <p className="simulation-helper">{routes.length === 0 ? '등록된 노선이 없습니다.' : query.trim() ? '검색 조건에 맞는 노선이 없습니다.' : '추가할 노선이 없습니다.'}</p>}
                   <button type="button" className="simulation-search-dismiss" onClick={() => setSearchOpen(false)}>검색 목록 닫기</button>
                 </div>
               )}
             </div>
-            {routesLoading && <p className="simulation-helper">노선 목록을 불러오는 중...</p>}
-            {routesError && <div role="alert"><p className="simulation-warning">{routesError}</p><button type="button" className="simulation-text-button" onClick={() => setReloadKey(value => value + 1)}>다시 시도</button></div>}
+            {routesLoading && (
+              <div className="simulation-data-state" role="status" aria-live="polite">
+                <span className="simulation-state-spinner" aria-hidden="true" />
+                <strong>노선을 불러오는 중입니다</strong>
+                <p>등록된 노선 목록을 확인하고 있어요.</p>
+              </div>
+            )}
+            {!routesLoading && routesError && (
+              <div className="simulation-data-state simulation-data-state--error" role="alert">
+                <strong>노선 정보를 불러오지 못했습니다</strong>
+                <p>{routesError}</p>
+                <button type="button" onClick={() => setReloadKey(value => value + 1)}>다시 시도</button>
+              </div>
+            )}
+            {!routesLoading && !routesError && routes.length === 0 && (
+              <div className="simulation-data-state" role="status">
+                <strong>등록된 노선이 없습니다</strong>
+                <p>백엔드에 노선 데이터가 등록되면 시뮬레이션을 실행할 수 있어요.</p>
+                {!USE_SIMULATION_MOCK && (
+                  <button type="button" onClick={() => setReloadKey(value => value + 1)}>새로고침</button>
+                )}
+              </div>
+            )}
             <div className="simulation-selected">
               {selectedRoutes.map(route => (
                 <div className={`simulation-route-card ${suspendedIds.some(id => String(id) === String(route.id)) ? 'is-suspended' : 'is-running'}`} key={route.id}>
@@ -187,13 +218,13 @@ export default function SimulationPage() {
                 </div>
               ))}
             </div>
-            <button type="button" className="simulation-add-guide" disabled={running || routesLoading} onClick={() => {
+            <button type="button" className="simulation-add-guide" disabled={running || routesLoading || !!routesError || routes.length === 0} onClick={() => {
               setSearchOpen(true)
               searchRef.current?.querySelector('input')?.focus()
             }}><FigmaUiIcon name="plus" className="simulation-plus-icon" />노선 하나 더 끄기</button>
             {!result && (
               <div className="simulation-actions">
-                <button type="button" className="simulation-run" disabled={!suspendedIds.length || routesLoading || running} onClick={runSimulation}>
+                <button type="button" className="simulation-run" disabled={!suspendedIds.length || routesLoading || !!routesError || running} onClick={runSimulation}>
                   {running ? '시뮬레이션 실행 중...' : '운행 중단 시뮬레이션 실행'}
                 </button>
                 <button type="button" className="simulation-text-button" disabled={running} onClick={resetSimulation}>선택 초기화</button>
@@ -202,7 +233,7 @@ export default function SimulationPage() {
             {selectedIds.length > 0 && !suspendedIds.length && <p className="simulation-helper">운행 중단할 노선의 스위치를 켜 주세요.</p>}
             {simulationError && <p role="alert" className="simulation-warning">{simulationError}</p>}
           </div>
-          {result && <SimulationResult result={result} selectedRoutes={resultRoutes} onClose={() => setResult(null)} />}
+          {result && <SimulationResult result={result} selectedRoutes={resultRoutes} onClose={() => { setResult(null); setFocusedStop(null) }} onSelectStop={setFocusedStop} />}
         </div>
       </section>
       <div className="simulation-demo-badge">{USE_SIMULATION_MOCK ? '시연용 데이터 · 실제 영향 분석 아님' : 'Django API 연결 모드'}</div>

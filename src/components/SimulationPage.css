@@ -129,3 +129,42 @@
 
 .simulation-more { background:#d9ffbd; border:1px solid #73db56; color:#016900; display:flex; align-items:center; justify-content:center; gap:7px; font-weight:600; }
 .simulation-more:hover { background:#c3ffa7; }
+
+/* Simulation API loading / empty / error states */
+.simulation-data-state {display:flex; flex-direction:column; align-items:center; text-align:center; gap:7px; margin:13px 0; padding:20px 16px; border:1px solid #e3e9df; border-radius:13px; background:#f8fbf6; color:#353535;}
+.simulation-data-state strong {font-size:14px; font-weight:650;}
+.simulation-data-state p {margin:0; font-size:13px; line-height:1.55; color:#737b70; overflow-wrap:anywhere;}
+.simulation-data-state button {margin-top:7px; padding:8px 16px; border:1px solid #79c966; border-radius:100px; background:#e4ffd8; color:#26651d; font-size:13px; font-weight:650; cursor:pointer;}
+.simulation-data-state button:hover {background:#d5ffc5;}
+.simulation-data-state button:focus-visible {outline:2px solid #228316; outline-offset:2px;}
+.simulation-data-state--error {background:#fff8ef; border-color:#f2dcc0;}
+.simulation-state-spinner {height:21px; width:21px; border:3px solid #dbedcf; border-top-color:#4da535; border-radius:50%; animation:simulation-spin .85s linear infinite;}
+@keyframes simulation-spin {to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce) {.simulation-state-spinner{animation:none}}
+.simulation-add-guide:disabled {cursor:not-allowed; opacity:.55;}
+
+/* 실제 시뮬레이션 결과 - 피그마 요약 카드/위험도 변화 목록 */
+.simulation-result-heading { display:flex; align-items:center; justify-content:space-between; }
+.simulation-result-heading button { border:0; background:transparent; font-size:24px; cursor:pointer; }
+.simulation-result .simulation-affected-title { margin:23px 0 11px; font-size:17px; }
+.simulation-result .simulation-stat { min-width:0; }
+.simulation-result .simulation-stat > div { white-space:normal; font-size:12px; }
+.simulation-result .simulation-stat strong { font-size:clamp(13px,1.35vw,20px); overflow-wrap:anywhere; }
+.simulation-affected-row { width:100%; cursor:pointer; text-align:left; background:#fff; color:#292929; }
+.simulation-affected-row:hover,.simulation-affected-row:focus-visible { background:#f4ffef; border-color:#83d96a; }
+.simulation-risk-before,.simulation-risk-after { font-size:12px; font-weight:650; }
+.simulation-risk-safe { color:#257c18; background:#e1f9d8; }
+.simulation-risk-caution { color:#ad6c00; background:#fff1cc; }
+.simulation-risk-danger { color:#c52920; background:#ffe0dc; }
+.simulation-risk-unknown { color:#666; background:#ededed; }
+.simulation-server-details { margin-top:18px; font-size:12px; }
+.simulation-server-details pre { max-height:180px; overflow:auto; font-size:11px; padding:10px; background:#f7f7f7; white-space:pre-wrap; overflow-wrap:anywhere; }
+.ieum-simulation-pin { background:var(--impact-color); width:42px; height:42px; border:3px solid white; box-shadow:0 3px 12px #0006; display:grid; place-items:center; font-size:21px; border-radius:13px; }
+.ieum-simulation-pin.is-focused { outline:4px solid #333; }
+
+/* 피그마 결과 저장 버튼: 완료된 결과에서만 활성화 */
+.simulation-result .simulation-save { background:#69f25a; color:#194d13; border:1px solid #56da48; margin-top:14px; border-radius:10px; font-weight:700; }
+.simulation-result .simulation-save:hover:not(:disabled) { background:#57e849; }
+.simulation-result .simulation-save:focus-visible { outline:2px solid #267b1d; outline-offset:2px; }
+.simulation-result .simulation-save:disabled { cursor:wait; opacity:.65; }
+.simulation-save-success { color:#226b1c; font-size:12px; margin:7px 0 0; }

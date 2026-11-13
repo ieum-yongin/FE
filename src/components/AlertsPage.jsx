@@ -34,6 +34,7 @@ export default function AlertsPage() {
   const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
 
   // 화면 상태
   const [filter, setFilter] = useState('all')
@@ -57,10 +58,11 @@ export default function AlertsPage() {
 
         if (!controller.signal.aborted) {
           setAlerts(data)
+          setSelectedId(current => data.some(item => String(item.id) === String(current)) ? current : null)
         }
       } catch (err) {
         if (!controller.signal.aborted) {
-          setError(err.message)
+          setError(err?.message || '알림 정보를 불러오지 못했습니다.')
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -72,7 +74,7 @@ export default function AlertsPage() {
     loadAlerts()
 
     return () => controller.abort()
-  }, [])
+  }, [reloadKey])
 
   // 상태별 개수 계산
   const counts = useMemo(() => ({
@@ -226,29 +228,43 @@ export default function AlertsPage() {
           }}
         />
 
-        <div className="alerts-list">
+        <div className="alerts-list" aria-busy={loading}>
           {loading && (
-            <p className="alerts-no-results">
-              알림 데이터를 불러오는 중입니다...
-            </p>
+            <div className="alerts-data-state" role="status">
+              <span className="alerts-state-spinner" aria-hidden="true" />
+              <strong>알림을 불러오는 중입니다</strong>
+              <p>이용 급변 정보를 확인하고 있어요.</p>
+            </div>
           )}
 
-          {error && (
-            <p
-              className="alerts-no-results"
-              role="alert"
-            >
-              {error}
-            </p>
+          {!loading && error && (
+            <div className="alerts-data-state alerts-data-state--error" role="alert">
+              <strong>알림 정보를 불러오지 못했습니다</strong>
+              <p>{error}</p>
+              <button type="button" onClick={() => setReloadKey(key => key + 1)}>
+                다시 시도
+              </button>
+            </div>
           )}
 
-          {!loading &&
-            !error &&
-            visible.length === 0 && (
-              <p className="alerts-no-results">
-                {!USE_MOCK && alerts.length === 0 ? '등록된 급변 알림이 없습니다.' : '검색 결과가 없어요.'}
-              </p>
-            )}
+          {!loading && !error && visible.length === 0 && (
+            <div className="alerts-data-state" role="status">
+              <strong>{alerts.length === 0 ? '등록된 급변 알림이 없습니다' : '검색 결과가 없습니다'}</strong>
+              <p>{alerts.length === 0
+                ? '새로운 급변 알림이 등록되면 이곳에 표시됩니다.'
+                : '검색어 또는 알림 상태 필터를 변경해 보세요.'}</p>
+              {alerts.length === 0 && !USE_MOCK && (
+                <button type="button" onClick={() => setReloadKey(key => key + 1)}>
+                  새로고침
+                </button>
+              )}
+              {alerts.length > 0 && (
+                <button type="button" onClick={() => { setQuery(''); setFilter('all'); setShowMore(false) }}>
+                  필터 초기화
+                </button>
+              )}
+            </div>
+          )}
 
           {!loading &&
             !error &&

@@ -529,3 +529,15 @@
 .alerts-more:hover { background:#c4ffa5; }
 .alerts-more-chevron { font-size:18px; line-height:1; }
 .alerts-more-chevron.up { transform:rotate(180deg); }
+
+/* API status messages — existing Figma layout stays unchanged. */
+.alerts-data-state { display:flex; flex-direction:column; align-items:center; text-align:center; gap:7px; padding:28px 18px; border:1px solid #e5e9e1; border-radius:14px; background:#f8fbf6; color:#353535; }
+.alerts-data-state strong {font-size:15px; font-weight:650;}
+.alerts-data-state p {margin:0; color:#6c746a; font-size:13px; line-height:1.55; overflow-wrap:anywhere;}
+.alerts-data-state button {margin-top:8px; padding:8px 16px; border:1px solid #79c966; border-radius:100px; background:#e4ffd8; color:#26651d; font-size:13px; font-weight:650; cursor:pointer;}
+.alerts-data-state button:hover {background:#d5ffc5;}
+.alerts-data-state button:focus-visible {outline:2px solid #228316; outline-offset:2px;}
+.alerts-data-state--error {background:#fff8ef; border-color:#f2dcc0;}
+.alerts-state-spinner {height:21px; width:21px; border:3px solid #dbedcf; border-top-color:#4da535; border-radius:50%; animation:alerts-spin .85s linear infinite;}
+@keyframes alerts-spin {to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce) {.alerts-state-spinner{animation:none}}

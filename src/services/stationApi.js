@@ -133,3 +133,10 @@ export async function getStationExtraDetails(id, { signal } = {}) {
   if (USE_STATION_MOCK) return null
   return api.get(`/api/stations/${encodeURIComponent(id)}/details/`, { signal })
 }
+
+// 시뮬레이션 지도는 전체 정류소 목록의 수백 페이지를 조회하지 않고 지도 API만 사용합니다.
+export async function getStationMap({ signal } = {}) {
+  if (USE_STATION_MOCK) return mockStations.map(mockCopy)
+  const data = await api.get('/api/stations/map/', { signal })
+  return readResults(data, '지도 정류소').map(normalizeStation)
+}
