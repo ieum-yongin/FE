@@ -9,16 +9,33 @@ export { USE_MOCK }
 export function normalizeAlert(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('알림 데이터 형식이 올바르지 않습니다.')
   const rawType = String(raw.type ?? raw.change_type ?? raw.change_direction ?? '').toLowerCase()
+  const classification = String(raw.classification ?? '').toUpperCase()
+  const rawStatus = String(raw.status ?? '').toLowerCase()
+  const status = ['NEEDS_CHECK', 'NEEDS_REVIEW'].includes(classification)
+    ? 'needs_review'
+    : classification === 'EXPECTED'
+      ? 'expected'
+      : ['needs_review', 'expected'].includes(rawStatus)
+        ? rawStatus
+        : 'needs_review'
+  const period = raw.period ?? raw.detected_period ?? (
+    raw.change_start && raw.change_end
+      ? `${raw.change_start} ~ ${raw.change_end}`
+      : '기간 정보 없음'
+  )
   return {
     ...raw,
     id: raw.id ?? raw.alert_id,
     stationId: raw.stationId ?? raw.station_id ?? raw.station?.id ?? null,
     stationName: raw.stationName ?? raw.station_name ?? raw.station?.name ?? '정류소명 미확인',
     type: ['increase', 'up', 'rise'].includes(rawType) ? 'increase' : ['decrease', 'down', 'fall'].includes(rawType) ? 'decrease' : 'unknown',
-    status: raw.status ?? raw.review_status ?? 'needs_review',
-    period: raw.period ?? raw.detected_period ?? '기간 정보 없음',
-    ratio: raw.ratio ?? raw.change_ratio ?? null,
-    x: null, y: null,
+    status,
+    period,
+    ratio: raw.ratio ?? raw.change_ratio ?? raw.usage_ratio ?? null,
+    latitude: raw.latitude ?? raw.station?.latitude ?? null,
+    longitude: raw.longitude ?? raw.station?.longitude ?? null,
+    // Mock 위치 비율은 지리 좌표로 변환하지 않습니다.
+    x: raw.x ?? null, y: raw.y ?? null,
   }
 }
 

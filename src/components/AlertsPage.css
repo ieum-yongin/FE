@@ -541,3 +541,73 @@
 .alerts-state-spinner {height:21px; width:21px; border:3px solid #dbedcf; border-top-color:#4da535; border-radius:50%; animation:alerts-spin .85s linear infinite;}
 @keyframes alerts-spin {to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce) {.alerts-state-spinner{animation:none}}
+
+
+/* 실제 Leaflet 지도. 빈 알림 목록이어도 용인시 지도를 보여줍니다. */
+.alerts-real-map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.alerts-leaflet-map {
+  height: 100%;
+  width: 100%;
+  background: #eaf0e8;
+}
+.alerts-leaflet-icon {
+  background: transparent;
+  border: 0;
+}
+.alerts-leaflet-pin {
+  display: flex;
+  width: 42px;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  border: 3px solid #fff;
+  font-size: 25px;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
+}
+.alerts-leaflet-pin.increase {background: #eb6956;}
+.alerts-leaflet-pin.decrease {background: #627fe8;}
+.alerts-leaflet-pin.unknown {background: #777;}
+.alerts-leaflet-pin.is-selected {outline: 3px solid #262626; outline-offset: 2px;}
+.alerts-map-message {z-index: 2; pointer-events: none;}
+.alerts-demo-label {z-index: 2;}
+
+/* 급변 알림 상세 차트 */
+.alerts-detail { max-height: calc(100% - 124px); overflow-y: auto; box-sizing: border-box; }
+.alerts-detail-data { margin-top: 14px; }
+.alerts-detail-numbers { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: #616161; }
+.alerts-detail-numbers span { display: flex; flex-direction: column; gap: 3px; }
+.alerts-detail-numbers strong { color: #303030; font-size: 13px; }
+.alerts-chart { border-top: 1px solid #e6e6e6; margin-top: 12px; padding-top: 13px; }
+.alerts-chart h3 { margin: 0 0 7px; font-size: 13px; }
+.alerts-chart svg { display: block; width: 100%; height: auto; }
+.alerts-chart-legend { display: flex; gap: 16px; font-size: 11px; }
+.alerts-chart-legend span::before { content: ''; display: inline-block; width: 13px; height: 3px; margin-right: 5px; vertical-align: middle; }
+.alerts-chart-legend .baseline::before { background: #7b8ca3; }
+.alerts-chart-legend .observed::before { background: #ed725d; }
+.alerts-chart-note, .alerts-chart-empty { color: #777; font-size: 11px; line-height: 1.5; }
+.alerts-detail-error { color: #9e3939; font-size: 12px; }
+.alerts-detail-error button { border: 1px solid #e4a6a6; background: white; border-radius: 6px; padding: 5px 9px; cursor: pointer; }
+.alerts-detail-actions { margin-top: 12px; }
+.alerts-detail-actions button:disabled { cursor: not-allowed; opacity: .55; }
+@media (max-width: 800px) { .alerts-detail { max-height: 540px; } }
+
+/* 급변 알림 검토 이력 등록 UI */
+.alerts-review-area { margin-top: 16px; padding-top: 12px; border-top: 1px solid #e7e9e5; }
+.alerts-review-heading { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.alerts-review-current { background: #f1f7ed; border: 1px solid #d4e6cb; border-radius: 30px; padding: 4px 9px; font-size: 11px; color: #35692d; }
+.alerts-review-hint { color: #6f7770; font-size: 11px !important; line-height: 1.5; margin: 8px 0 12px !important; }
+.alerts-review-label { display:block; font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+.alerts-review-note { display:block; box-sizing:border-box; width:100%; min-height:72px; padding:9px; border:1px solid #cfd9cb; border-radius:8px; background:#fff; color:#272727; resize:vertical; font:inherit; font-size:12px; }
+.alerts-review-note:focus-visible { outline:2px solid #79c966; outline-offset:1px; }
+.alerts-review-area .alerts-detail-actions { margin-top:10px; }
+.alerts-review-area .alerts-detail-actions button:last-child { background:#dcfbd0; border-color:#70b65b; font-weight:600; }
+.alerts-review-feedback { margin:9px 0 0 !important; font-size:12px !important; line-height:1.5; }
+.alerts-review-feedback.is-error { color:#ac3c37; }
+.alerts-review-feedback.is-success { color:#2c7925; }

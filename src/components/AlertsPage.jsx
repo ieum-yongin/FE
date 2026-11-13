@@ -1,10 +1,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
-import { getAlerts, USE_MOCK } from '../services/alerts'
+import { getAlerts, getAlertDetail, postAlertReview, USE_MOCK } from '../services/alerts'
 import FigmaUiIcon from './FigmaUiIcon'
+import AlertsLeafletMap from './AlertsLeafletMap'
+import AlertDailyChart from './AlertDailyChart'
+import { getStationMap } from '../services/stationApi'
 import './AlertsPage.css'
 
-// Mock 7개 중 4개를 우선 표시해 '더 보기' 동작도 테스트할 수 있게 합니다.
+// 리스트가 길어지면 더보기로 표시합니다.
 const INITIAL_VISIBLE_COUNT = 7
 
 const STATUS_LABEL = {
@@ -17,6 +20,10 @@ const FILTERS = [
   ['needs_review', '확인 필요'],
   ['expected', '예상된 변화'],
 ]
+
+function formatDailyUsage(value) {
+  return value == null || !Number.isFinite(Number(value)) ? '자료 없음' : `${Math.round(Number(value)).toLocaleString('ko-KR')}명/일`
+}
 
 function ChangeIcon({ type }) {
   return (
@@ -35,6 +42,8 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  const [stationPositions, setStationPositions] = useState(new Map())
+  const [mapLocationError, setMapLocationError] = useState('')
 
   // 화면 상태
   const [filter, setFilter] = useState('all')
@@ -42,6 +51,47 @@ export default function AlertsPage() {
   const [selectedId, setSelectedId] = useState(null)
   const [showGuide, setShowGuide] = useState(true)
   const [showMore, setShowMore] = useState(false)
+  const [detail, setDetail] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
+  const [detailReloadKey, setDetailReloadKey] = useState(0)
+  const [reviewNote, setReviewNote] = useState('')
+  const [reviewSaving, setReviewSaving] = useState(false)
+  const [reviewError, setReviewError] = useState('')
+  const [reviewSuccess, setReviewSuccess] = useState('')
+  const [reviewStatus, setReviewStatus] = useState(null)
+
+  // 정류소 선택이 바뀌면 이전 알림의 메모 및 검토 메시지를 지웁니다.
+  useEffect(() => {
+    setReviewNote('')
+    setReviewError('')
+    setReviewSuccess('')
+    setReviewStatus(null)
+  }, [selectedId])
+
+  async function saveReview(statusAfter) {
+    if (selectedId == null || reviewSaving || USE_MOCK) return
+    if (!['REVIEWING', 'RESOLVED'].includes(statusAfter)) return
+    const alertId = selectedId
+    setReviewSaving(true)
+    setReviewError('')
+    setReviewSuccess('')
+    try {
+      await postAlertReview(alertId, {
+        status_after: statusAfter,
+        note: reviewNote.trim() || null,
+      })
+      // 다른 알림으로 이동 중이었으면 이전 알림의 성공 상태를 표시하지 않습니다.
+      setReviewStatus(statusAfter)
+      setReviewSuccess(statusAfter === 'REVIEWING' ? '검토 시작이 저장되었습니다.' : '검토 완료가 저장되었습니다.')
+      setDetailReloadKey(key => key + 1)
+      setReloadKey(key => key + 1)
+    } catch (err) {
+      setReviewError(err?.data?.message || err?.message || '검토 상태 저장에 실패했습니다.')
+    } finally {
+      setReviewSaving(false)
+    }
+  }
 
   // 알림 데이터 불러오기
   useEffect(() => {
@@ -76,6 +126,57 @@ export default function AlertsPage() {
     return () => controller.abort()
   }, [reloadKey])
 
+  // 상세 데이터는 알림 선택 시에만 조회. 빠르게 다른 알림을 선택해도 이전 응답으로 덮어쓰지 않도록 취소합니다.
+  useEffect(() => {
+    if (selectedId == null) return
+    const controller = new AbortController()
+    async function loadDetail() {
+      try {
+        setDetailLoading(true)
+        setDetail(null)
+        setDetailError('')
+        const data = await getAlertDetail(selectedId, { signal: controller.signal })
+        if (!controller.signal.aborted) setDetail(data)
+      } catch (err) {
+        if (!controller.signal.aborted) setDetailError(err?.message || '알림 상세 조회에 실패했습니다.')
+      } finally {
+        if (!controller.signal.aborted) setDetailLoading(false)
+      }
+    }
+    loadDetail()
+    return () => controller.abort()
+  }, [selectedId, detailReloadKey])
+
+  // 알림이 있을 때만 지도 정류소 위치 조회 (전체 정류소 페이지 순회 없음).
+  useEffect(() => {
+    if (USE_MOCK || alerts.length === 0) {
+      setStationPositions(new Map())
+      setMapLocationError('')
+      return
+    }
+    const controller = new AbortController()
+    getStationMap({ signal: controller.signal })
+      .then(stations => {
+        if (controller.signal.aborted) return
+        setStationPositions(new Map(stations.map(station => [String(station.id), station])))
+        setMapLocationError('')
+      })
+      .catch(err => {
+        if (!controller.signal.aborted) setMapLocationError(err?.message || '정류소 좌표를 조회하지 못했습니다.')
+      })
+    return () => controller.abort()
+  }, [alerts])
+
+  // 알림에 정류소 좌표가 없을 때 지도 API의 정류소 ID로 연결합니다.
+  const geoAlerts = useMemo(() => alerts.map(alert => {
+    const station = stationPositions.get(String(alert.stationId))
+    return {
+      ...alert,
+      latitude: alert.latitude ?? station?.latitude ?? null,
+      longitude: alert.longitude ?? station?.longitude ?? null,
+    }
+  }), [alerts, stationPositions])
+
   // 상태별 개수 계산
   const counts = useMemo(() => ({
     all: alerts.length,
@@ -102,77 +203,31 @@ export default function AlertsPage() {
     })
   }, [alerts, filter, query])
 
-  const selected = alerts.find(
-    alert => alert.id === selectedId
+  const selected = geoAlerts.find(
+    alert => String(alert.id) === String(selectedId)
   )
 
   const visible = showMore
     ? filtered
     : filtered.slice(0, INITIAL_VISIBLE_COUNT)
 
-  // 상태 변경: 서버 저장은 추후 구현
-  function updateStatus(id, status) {
-    setAlerts(current => current.map(alert =>
-      alert.id === id
-        ? { ...alert, status }
-        : alert
-    ))
-  }
 
   return (
     <div className="alerts-page">
-      {/* 지도 API 연결 전 임시 지도 */}
-      <div
-        className="alerts-map"
-        aria-label="정류소 위치 시연용 배경"
-      >
-        <div className="alerts-road road-a" />
-        <div className="alerts-road road-b" />
-        <div className="alerts-road road-c" />
-
-        <span className="alerts-map-label label-a">
-          처인구
-        </span>
-        <span className="alerts-map-label label-b">
-          기흥구
-        </span>
-        <span className="alerts-map-label label-c">
-          수지구
-        </span>
-
-        {(USE_MOCK ? filtered : []).map(alert => (
-          <button
-            type="button"
-            key={alert.id}
-            className={
-              `alerts-map-pin ${alert.type} ${
-                selectedId === alert.id
-                  ? 'is-selected'
-                  : ''
-              }`
-            }
-            style={{
-              left: `${alert.x ?? 50}%`,
-              top: `${alert.y ?? 50}%`,
-            }}
-            onClick={() => setSelectedId(alert.id)}
-            title={`${alert.stationName} 상세 보기`}
-            aria-label={`${alert.stationName} 알림 선택`}
-          >
-            {alert.type === 'increase' ? '↑' : '↓'}
-          </button>
-        ))}
-      </div>
-
-      <div className="alerts-map-message">
-        {USE_MOCK ? "ⓘ 시연용 정류소 위치입니다" : "ⓘ 실제 알림의 좌표 표시는 백엔드 데이터 연결 후 제공됩니다"}
-      </div>
-
-      <span className="alerts-demo-label">
-        {USE_MOCK
-          ? '시연용 데이터 · 지도 연결 전'
-          : '지도 연결 전'}
-      </span>
+      <AlertsLeafletMap
+        alerts={geoAlerts}
+        selected={selected}
+        onSelect={setSelectedId}
+      />
+      {!loading && !error && alerts.length === 0 && (
+        <div className="alerts-map-message">ⓘ 현재 등록된 이용 급변 알림이 없습니다.</div>
+      )}
+      {mapLocationError && alerts.length > 0 && (
+        <div className="alerts-map-message" role="status">ⓘ 알림 위치 조회 실패: {mapLocationError}</div>
+      )}
+      {USE_MOCK && (
+        <span className="alerts-demo-label">시연용 알림 · 실제 좌표 미제공</span>
+      )}
 
       {/* 알림 목록 */}
       <section
@@ -370,40 +425,64 @@ export default function AlertsPage() {
             평소 대비 {selected.ratio}배
           </p>
 
-          {selected.reason && (
+          {(detail?.analysis_summary || detail?.reason || selected.reason) && (
             <p>
               <strong>참고</strong>
               {' · '}
-              {selected.reason}
+              {detail?.analysis_summary || detail?.reason || selected.reason}
             </p>
           )}
 
-          <div className="alerts-detail-actions">
-            <button
-              type="button"
-              onClick={() => updateStatus(
-                selected.id,
-                'needs_review'
-              )}
-            >
-              확인 필요
-            </button>
-
-            <button
-              type="button"
-              onClick={() => updateStatus(
-                selected.id,
-                'expected'
-              )}
-            >
-              예상된 변화
-            </button>
+          <div className="alerts-detail-data" aria-busy={detailLoading}>
+            {detailLoading && <p role="status">일별 이용량 데이터를 불러오는 중입니다.</p>}
+            {detailError && (
+              <div role="alert" className="alerts-detail-error">
+                <p>{detailError}</p>
+                <button type="button" onClick={() => setDetailReloadKey(value => value + 1)}>다시 시도</button>
+              </div>
+            )}
+            {!detailLoading && !detailError && detail && (
+              <>
+                <div className="alerts-detail-numbers">
+                  <span>평소 평균 <strong>{formatDailyUsage(detail.baseline_daily_usage)}</strong></span>
+                  <span>관측 평균 <strong>{formatDailyUsage(detail.observed_daily_usage)}</strong></span>
+                </div>
+                <AlertDailyChart daily={detail.daily} />
+              </>
+            )}
           </div>
 
-          <small>
-            상태 변경은 현재 화면에서만 유지돼요.
-            서버에는 저장되지 않습니다.
-          </small>
+          <div className="alerts-review-area">
+            <div className="alerts-review-heading">
+              <strong>검토 상태</strong>
+              <span className="alerts-review-current">{({
+                NEW: '신규', REVIEWING: '검토 중', RESOLVED: '검토 완료',
+              })[reviewStatus ?? detail?.review_status ?? selected.review_status] ?? '상태 확인 중'}</span>
+            </div>
+            <p className="alerts-review-hint">위의 ‘확인 필요’는 알림 분류이며, 아래 버튼은 검토 이력을 등록합니다.</p>
+            <label className="alerts-review-label" htmlFor="alerts-review-note">검토 메모 (선택)</label>
+            <textarea
+              id="alerts-review-note"
+              className="alerts-review-note"
+              rows={3}
+              maxLength={1000}
+              placeholder="예: 행사 일정 확인 중"
+              value={reviewNote}
+              disabled={reviewSaving || USE_MOCK}
+              onChange={e => setReviewNote(e.target.value)}
+            />
+            <div className="alerts-detail-actions">
+              <button type="button" onClick={() => saveReview('REVIEWING')} disabled={reviewSaving || detailLoading || USE_MOCK}>
+                {reviewSaving ? '저장 중…' : '검토 시작'}
+              </button>
+              <button type="button" onClick={() => saveReview('RESOLVED')} disabled={reviewSaving || detailLoading || USE_MOCK}>
+                검토 완료
+              </button>
+            </div>
+            {reviewError && <p className="alerts-review-feedback is-error" role="alert">{reviewError}</p>}
+            {reviewSuccess && <p className="alerts-review-feedback is-success" role="status">{reviewSuccess}</p>}
+            {USE_MOCK && <small>시연용 모드에서는 검토 이력을 저장할 수 없습니다.</small>}
+          </div>
         </section>
       )}
 
