@@ -784,3 +784,11 @@
 @media (max-width: 800px) {
   .alerts-page .alerts-detail { position: relative; top: auto; right: auto; width: 100%; max-width: none; max-height: 550px; margin: 20px 0; }
 }
+
+/* NAVER Maps SDK loading / authentication notices */
+.alerts-real-map .ieum-naver-map-error {
+  position: absolute; z-index: 3; top: 65px; left: 50%; transform: translateX(-50%);
+  max-width: 88%; background: #fff; color: #374237; border: 1px solid #d8e1d4;
+  border-radius: 12px; padding: 14px 18px; box-shadow: 0 4px 16px #0002;
+  font-size: 13px; text-align: center;
+}
