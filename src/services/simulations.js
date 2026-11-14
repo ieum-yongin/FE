@@ -58,11 +58,13 @@ export function normalizeRoute(route) {
     from:
       route.from ??
       route.origin ??
+      route.start_stop_name ??
       route.start_station ??
       '기점 정보 없음',
     to:
       route.to ??
       route.destination ??
+      route.end_stop_name ??
       route.end_station ??
       '종점 정보 없음',
     stops:
@@ -72,25 +74,41 @@ export function normalizeRoute(route) {
   }
 }
 
-// 노선 목록 조회
+// 노선 목록 API는 페이지네이션을 사용하므로 모든 페이지를 조회합니다.
+// 첫 페이지만 받아 검색하면 뒤쪽 노선(예: 1112번)이 누락됩니다.
 export async function getRoutes({ signal } = {}) {
   if (USE_SIMULATION_MOCK) {
     return MOCK_ROUTES.map(route => ({ ...route }))
   }
 
-  const data = await api.get('/api/routes/', { signal })
-
-  const items = Array.isArray(data)
-    ? data
-    : data?.results
-
-  if (!Array.isArray(items)) {
-    throw new Error(
-      '노선 목록 API 응답 형식을 확인해야 합니다.'
-    )
+  const endpoint = '/api/routes/'
+  const requestedPageSize = 100
+  const first = await api.get(`${endpoint}?page=1&page_size=${requestedPageSize}`, { signal })
+  if (Array.isArray(first)) return first.map(normalizeRoute)
+  if (!Array.isArray(first?.results)) {
+    throw new Error('노선 목록 API 응답 형식을 확인해야 합니다.')
   }
 
-  return items.map(normalizeRoute)
+  const all = [...first.results]
+  const total = Number(first.count)
+  const pageSize = Number(first.page_size) || all.length || requestedPageSize
+  if (!Number.isFinite(total) || total < 0 || !Number.isFinite(pageSize) || pageSize <= 0) {
+    throw new Error('노선 목록 페이지 정보가 올바르지 않습니다.')
+  }
+  const pages = Math.ceil(total / pageSize)
+  if (pages > 100) throw new Error('노선 목록 페이지 수가 너무 많습니다.')
+
+  for (let page = 2; page <= pages; page++) {
+    const response = await api.get(`${endpoint}?page=${page}&page_size=${requestedPageSize}`, { signal })
+    if (!Array.isArray(response?.results)) {
+      throw new Error(`노선 목록 ${page}페이지를 불러오지 못했습니다.`)
+    }
+    all.push(...response.results)
+  }
+  if (all.length < total) {
+    throw new Error(`노선 목록 일부만 불러왔습니다. (${all.length}/${total})`)
+  }
+  return all.map(normalizeRoute)
 }
 
 // 시뮬레이션 생성
