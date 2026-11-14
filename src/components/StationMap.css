@@ -1,0 +1,169 @@
+
+.station-map-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 560px;
+  overflow: hidden;
+  background: #e8efe7;
+}
+
+.station-map-container {
+  width: 100%;
+  height: 100%;
+  min-height: 560px;
+  z-index: 1;
+}
+
+.station-map-demo-notice {
+  position: absolute;
+  z-index: 450;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 11px 17px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #444;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.leaflet-container {
+  font-family: Pretendard, Arial, sans-serif;
+}
+
+.leaflet-control-attribution {
+  font-size: 11px;
+}
+
+@media (max-width: 700px) {
+  .station-map-demo-notice {
+    top: 12px;
+    font-size: 11px;
+    max-width: 90%;
+    white-space: normal;
+    text-align: center;
+  }
+}
+
+/* Figma 홈 화면: 위험도 색상 마커와 하단 평균 승차인원 */
+.ieum-leaflet-icon { background: transparent; border: 0; }
+.ieum-marker {
+  display: grid;
+  place-items: center;
+  width: 55px;
+  height: 55px;
+  border: 4px solid white;
+  border-radius: 14px;
+  box-shadow: 2px 3px 10px #00000042;
+  color: #222;
+  transition: transform .15s ease;
+}
+.ieum-marker.danger { background: linear-gradient(135deg, #ff8250 0%, #ff4a4a 57%, #b50000 100%); }
+.ieum-marker.warning { background: linear-gradient(135deg, #ffe591 0%, #fff04a 57%, #eab400 100%); }
+.ieum-marker.stable { background: linear-gradient(135deg, #efffbb 0%, #4aff5c 60%, #00a611 100%); }
+.ieum-marker.unknown { background: linear-gradient(135deg, #f2f2f2, #999); }
+.ieum-marker-bus { font-size: 26px; font-weight: 800; line-height: 1; }
+.ieum-demo-marker-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 400;
+  pointer-events: none;
+}
+.ieum-demo-marker {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  transform: translate(-50%, -40%);
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.ieum-demo-marker:hover .ieum-marker,
+.ieum-demo-marker.selected .ieum-marker { transform: translateY(-3px) scale(1.08); }
+.ieum-demo-marker.selected .ieum-marker { outline: 3px solid #1c8b1d; outline-offset: 2px; }
+.ieum-demo-marker:focus-visible { outline: 3px solid #1c8b1d; outline-offset: 4px; border-radius: 8px; }
+.ieum-marker-count {
+  display: block;
+  min-width: 51px;
+  padding: 5px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  text-align: center;
+  color: #222;
+  background: #fff;
+  box-shadow: 1px 2px 12px #00000029;
+  font-size: 12px;
+}
+.station-map-demo-notice { z-index: 410; }
+@media (prefers-reduced-motion: reduce) {
+  .ieum-marker { transition: none; }
+}
+
+/* Figma 정류소 원본 버스 SVG를 재사용하는 마커 */
+.ieum-marker { border-width: 3px; }
+.ieum-marker-bus { display: block; width: 30px; height: 34px; object-fit: contain; }
+.ieum-leaflet-icon .ieum-marker-count {
+  display: inline-block; margin: 1px auto 0; text-align: center;
+  position: relative; left: 50%; transform: translateX(-50%);
+  white-space: nowrap;
+}
+.ieum-marker.selected { outline: 3px solid #1c8b1d; outline-offset: 2px; }
+.ieum-leaflet-icon .ieum-marker { transform: none; }
+
+/* 실제 정류소가 밀집한 구간은 숫자 클러스터로 요약합니다. */
+.ieum-cluster-leaflet-icon {
+  background: transparent;
+  border: 0;
+}
+.ieum-cluster {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #eaffca 5%, #80ed64 58%, #3cc83a 100%);
+  color: #173f21;
+  box-shadow: 0 3px 13px #00000040;
+  font-family: Pretendard, Arial, sans-serif;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.ieum-cluster.medium {
+  background: linear-gradient(145deg, #e2ffc6, #73e65e 58%, #34ba39);
+}
+.ieum-cluster.large {
+  background: linear-gradient(145deg, #ceffbd, #5ddf4c 58%, #20a832);
+}
+.ieum-cluster:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 18px #0000004d;
+}
+.ieum-cluster-number {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.ieum-cluster.large .ieum-cluster-number { font-size: 18px; }
+.ieum-cluster-label {
+  font-size: 9px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ieum-cluster { transition: none; }
+}

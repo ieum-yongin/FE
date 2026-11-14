@@ -1,0 +1,177 @@
+.simulation-page { position:relative; flex:1; min-height:calc(100vh - 95px); height:calc(100vh - 95px); overflow:hidden; background:#e9f0e7; color:#232323; font-family:Pretendard,Arial,sans-serif; }
+.simulation-page * { box-sizing:border-box; }
+.simulation-map-background { position:absolute; inset:0; z-index:0; }
+.simulation-map-background .station-map-demo-notice { top:16px; }
+.simulation-panel { position:absolute; top:30px; left:20px; z-index:500; width:min(492px,calc(100% - 40px)); max-height:calc(100% - 48px); border-radius:20px; background:#fff; box-shadow:2px 4px 20px #0002; overflow:hidden; }
+.simulation-panel-scroll { overflow-y:auto; max-height:calc(100vh - 95px - 48px); padding:18px 21px 22px; scrollbar-width:thin; }
+.simulation-heading { margin-bottom:26px; }
+.simulation-heading-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.simulation-heading h1 { margin:0; display:flex; gap:8px; align-items:center; font-size:23px; font-weight:700; line-height:1.4; }
+.simulation-heading h1 span { font-size:22px; color:#232323; }
+.simulation-heading p { margin:3px 0 0; font-size:14px; color:#777; line-height:1.5; }
+.simulation-close-result { padding:0; border:0; background:transparent; color:#777; width:34px; height:34px; font-size:30px; cursor:pointer; }
+.simulation-form h2,.simulation-result h2 { font-size:21px; line-height:1.4; margin:0 0 13px; font-weight:700; }
+.simulation-search-block { position:relative; }
+.simulation-search-wrap,.simulation-stop-search { display:flex; align-items:center; gap:12px; border:1px solid #dcdcdc; background:white; height:50px; padding:0 16px; border-radius:12px; }
+.simulation-search-wrap>span,.simulation-stop-search>span { font-size:25px; line-height:1; color:#555; }
+.simulation-search-wrap input,.simulation-stop-search input { border:0; background:transparent; min-width:0; flex:1; outline:0; color:#222; font-size:15px; }
+.simulation-search-wrap:focus-within,.simulation-stop-search:focus-within { outline:2px solid #9be68d; }
+.simulation-search-results { position:absolute; top:55px; left:0; width:100%; max-height:240px; overflow-y:auto; border:1px solid #e2e2e2; background:#fff; border-radius:12px; box-shadow:0 7px 18px #0002; padding:5px; z-index:20; }
+.simulation-search-option { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; border:0; border-radius:9px; background:transparent; width:100%; text-align:left; cursor:pointer; }
+.simulation-search-option:hover { background:#f0ffe9; }
+.simulation-search-option>span:first-child { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.simulation-search-option strong { font-size:14px; }
+.simulation-search-option small { color:#777; font-size:12px; overflow-wrap:anywhere; }
+.simulation-search-option>span:last-child { white-space:nowrap; font-size:12px; color:#258b18; font-weight:700; }
+.simulation-search-dismiss { border:0; background:#f6f6f6; border-radius:8px; padding:9px; width:100%; cursor:pointer; }
+.simulation-selected { display:flex; flex-direction:column; gap:9px; margin-top:24px; }
+.simulation-route-card { display:flex; align-items:center; gap:13px; min-height:67px; padding:10px 14px; border:1px solid #e5e5e5; background:#fafafa; border-radius:12px; }
+.simulation-bus-icon { display:grid; place-items:center; flex-shrink:0; width:29px; height:31px; font-size:22px; color:#333; }
+.simulation-route-info { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.simulation-route-info strong { font-size:15px; }
+.simulation-route-info small { font-size:12px; color:#777; overflow-wrap:anywhere; }
+.simulation-route-status { font-size:13px; color:#b03528; white-space:nowrap; }
+.simulation-remove { flex-shrink:0; border:0; border-radius:7px; background:#eee; color:#444; font-size:22px; width:27px; height:27px; cursor:pointer; }
+.simulation-add-guide { width:100%; display:flex; align-items:center; justify-content:center; gap:5px; margin-top:10px; height:50px; background:#fff; border:1px solid #dadada; border-radius:12px; color:#444; font-size:15px; cursor:pointer; }
+.simulation-add-guide>span { font-size:25px; }
+.simulation-add-guide:hover { background:#f4ffef; border-color:#8bd47a; }
+.simulation-actions { margin-top:15px; }
+.simulation-run { width:100%; height:45px; border:1px solid #38b822; border-radius:11px; background:linear-gradient(100deg,#cbffb8,#8af867); color:#232323; font-size:15px; font-weight:700; cursor:pointer; }
+.simulation-run:disabled { background:#eee; color:#999; border-color:#ddd; cursor:not-allowed; }
+.simulation-text-button { display:block; margin:12px auto 2px; padding:3px; border:0; background:transparent; color:#777; text-decoration:underline; font-size:13px; cursor:pointer; }
+.simulation-warning { margin:10px 0; background:#fff6dd; border-radius:9px; color:#875e1b; padding:12px; font-size:13px; line-height:1.5; }
+.simulation-helper { font-size:13px; color:#777; padding:8px; margin:0; }
+.simulation-demo-badge { position:absolute; top:18px; right:20px; z-index:410; padding:10px 14px; background:#ffffffec; color:#555; font-size:12px; border-radius:10px; box-shadow:0 3px 12px #0002; pointer-events:none; }
+.simulation-result-divider { height:1px; background:#efefef; margin:22px -21px 24px; }
+.simulation-stat-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.simulation-stat { min-height:85px; border-radius:12px; padding:10px; overflow:hidden; }
+.simulation-stat>div { display:flex; align-items:center; gap:5px; font-size:13px; white-space:nowrap; }
+.simulation-stat strong { display:block; margin-top:3px; font-size:25px; text-align:right; line-height:1.5; }
+.simulation-stat.danger { background:#ffebea; }
+.simulation-stat.warning { background:#fff5d9; }
+.simulation-stat.people { background:#e8f7e5; }
+.simulation-result-note { font-size:12px; color:#888; line-height:1.6; margin:10px 0 0; }
+.simulation-result .simulation-affected-title { margin-top:23px; }
+.simulation-stop-search { height:43px; margin-bottom:10px; }
+.simulation-affected-list { display:flex; flex-direction:column; gap:7px; }
+.simulation-affected-row { display:flex; gap:8px; align-items:center; min-height:50px; border:1px solid #e7e7e7; border-radius:10px; padding:8px 12px; font-size:12px; }
+.simulation-pin { font-size:19px; color:#555; }
+.simulation-affected-row strong { flex:1; min-width:0; font-size:13px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.simulation-risk-before,.simulation-risk-after { border-radius:7px; background:#eee; padding:5px; white-space:nowrap; }
+.simulation-risk-after { background:#ffdfdd; }
+.simulation-empty-stops { border:1px dashed #ddd; background:#fafafa; border-radius:10px; padding:18px 12px; color:#777; font-size:13px; line-height:1.6; }
+.simulation-more,.simulation-save { display:block; height:42px; margin-top:12px; border-radius:10px; border:1px solid #dedede; background:white; width:100%; font-size:14px; cursor:pointer; }
+.simulation-save { background:#cfffbf; border-color:#a9e993; font-weight:600; margin-top:20px; }
+@media(max-width:720px) { .simulation-panel { top:14px; left:12px; width:calc(100% - 24px); max-height:calc(100% - 28px); } .simulation-panel-scroll { max-height:calc(100vh - 95px - 28px); padding:15px; } .simulation-stat-grid { gap:6px; } .simulation-stat { padding:7px; } .simulation-stat>div { font-size:11px; } .simulation-stat strong { font-size:19px; } .simulation-demo-badge { top:auto; bottom:13px; right:12px; } }
+
+/* Figma 오리지널: 시뮬레이션 제목·검색·노선 선택 카드 */
+.simulation-heading-icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+}
+.simulation-search-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+}
+.simulation-plus-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+}
+.simulation-route-card {
+  min-height: 67px;
+  background: #fedddd;
+  border: 1px solid #ffa1a1;
+  border-radius: 14px;
+  gap: 15px;
+  padding: 11px 18px;
+}
+.simulation-bus-icon {
+  display: block;
+  width: 26px;
+  height: 28px;
+  flex: 0 0 26px;
+}
+.simulation-route-info strong { color: #eb1000; font-size: 16px; font-weight: 600; }
+.simulation-route-info small { color: #ff4a4a; font-size: 12px; font-weight: 500; }
+.simulation-route-status { color: #eb1000; font-size: 16px; font-weight: 600; }
+.simulation-remove {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: #fff;
+  color: #eb1000;
+  font-size: 24px;
+}
+.simulation-remove:hover { background: #fff4f4; }
+@media(max-width: 500px) {
+  .simulation-route-card { gap: 8px; padding: 9px 11px; }
+  .simulation-route-status { font-size: 12px; }
+  .simulation-route-info strong { font-size: 14px; }
+}
+
+/* Figma: 운행 중단 토글 (설정된 노선만 시뮬레이션에 반영) */
+.simulation-route-switch { flex:0 0 42px; width:42px; height:25px; padding:3px; background:#aaa; border:0; border-radius:30px; cursor:pointer; display:flex; align-items:center; justify-content:flex-start; transition:background .15s; }
+.simulation-route-switch[aria-checked="true"] { background:#ff4a4a; justify-content:flex-end; }
+.simulation-route-switch-thumb { width:19px; height:19px; border-radius:50%; background:#fff; box-shadow:0 1px 3px #0002; }
+.simulation-route-switch:focus-visible { outline:2px solid #353535; outline-offset:3px; }
+.simulation-route-switch:disabled { opacity:.5; cursor:not-allowed; }
+.simulation-route-card.is-running { background:#f6f6f6; border-color:#dedede; }
+.simulation-route-card.is-running .simulation-route-info strong,.simulation-route-card.is-running .simulation-route-status { color:#555; }
+.simulation-route-card.is-running .simulation-route-info small { color:#888; }
+.simulation-route-card .simulation-remove { width:27px; height:27px; flex:0 0 27px; font-size:20px; }
+@media(max-width:500px) { .simulation-route-card { gap:6px; } .simulation-route-switch { flex-basis:38px; width:38px; } .simulation-route-status { font-size:11px; } }
+
+.simulation-more { background:#d9ffbd; border:1px solid #73db56; color:#016900; display:flex; align-items:center; justify-content:center; gap:7px; font-weight:600; }
+.simulation-more:hover { background:#c3ffa7; }
+
+/* Simulation API loading / empty / error states */
+.simulation-data-state {display:flex; flex-direction:column; align-items:center; text-align:center; gap:7px; margin:13px 0; padding:20px 16px; border:1px solid #e3e9df; border-radius:13px; background:#f8fbf6; color:#353535;}
+.simulation-data-state strong {font-size:14px; font-weight:650;}
+.simulation-data-state p {margin:0; font-size:13px; line-height:1.55; color:#737b70; overflow-wrap:anywhere;}
+.simulation-data-state button {margin-top:7px; padding:8px 16px; border:1px solid #79c966; border-radius:100px; background:#e4ffd8; color:#26651d; font-size:13px; font-weight:650; cursor:pointer;}
+.simulation-data-state button:hover {background:#d5ffc5;}
+.simulation-data-state button:focus-visible {outline:2px solid #228316; outline-offset:2px;}
+.simulation-data-state--error {background:#fff8ef; border-color:#f2dcc0;}
+.simulation-state-spinner {height:21px; width:21px; border:3px solid #dbedcf; border-top-color:#4da535; border-radius:50%; animation:simulation-spin .85s linear infinite;}
+@keyframes simulation-spin {to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce) {.simulation-state-spinner{animation:none}}
+.simulation-add-guide:disabled {cursor:not-allowed; opacity:.55;}
+
+/* 실제 시뮬레이션 결과 - 피그마 요약 카드/위험도 변화 목록 */
+.simulation-result-heading { display:flex; align-items:center; justify-content:space-between; }
+.simulation-result-heading button { border:0; background:transparent; font-size:24px; cursor:pointer; }
+.simulation-result .simulation-affected-title { margin:23px 0 11px; font-size:17px; }
+.simulation-result .simulation-stat { min-width:0; }
+.simulation-result .simulation-stat > div { white-space:normal; font-size:12px; }
+.simulation-result .simulation-stat strong { font-size:clamp(13px,1.35vw,20px); overflow-wrap:anywhere; }
+.simulation-affected-row { width:100%; cursor:pointer; text-align:left; background:#fff; color:#292929; }
+.simulation-affected-row:hover,.simulation-affected-row:focus-visible { background:#f4ffef; border-color:#83d96a; }
+.simulation-risk-before,.simulation-risk-after { font-size:12px; font-weight:650; }
+.simulation-risk-safe { color:#257c18; background:#e1f9d8; }
+.simulation-risk-caution { color:#ad6c00; background:#fff1cc; }
+.simulation-risk-danger { color:#c52920; background:#ffe0dc; }
+.simulation-risk-unknown { color:#666; background:#ededed; }
+.simulation-server-details { margin-top:18px; font-size:12px; }
+.simulation-server-details pre { max-height:180px; overflow:auto; font-size:11px; padding:10px; background:#f7f7f7; white-space:pre-wrap; overflow-wrap:anywhere; }
+.ieum-simulation-pin { background:var(--impact-color); width:42px; height:42px; border:3px solid white; box-shadow:0 3px 12px #0006; display:grid; place-items:center; font-size:21px; border-radius:13px; }
+.ieum-simulation-pin.is-focused { outline:4px solid #333; }
+
+/* 피그마 결과 저장 버튼: 완료된 결과에서만 활성화 */
+.simulation-result .simulation-save { background:#69f25a; color:#194d13; border:1px solid #56da48; margin-top:14px; border-radius:10px; font-weight:700; }
+.simulation-result .simulation-save:hover:not(:disabled) { background:#57e849; }
+.simulation-result .simulation-save:focus-visible { outline:2px solid #267b1d; outline-offset:2px; }
+.simulation-result .simulation-save:disabled { cursor:wait; opacity:.65; }
+.simulation-save-success { color:#226b1c; font-size:12px; margin:7px 0 0; }
+
+/* 시뮬레이션 위험도 변경 목록: 지도 위치핀 아이콘 (기존 ♧ 대신) */
+.simulation-affected-row .simulation-pin {
+  display:inline-flex; align-items:center; justify-content:center;
+  flex:0 0 21px; width:21px; height:24px; color:#727272;
+}
+.simulation-affected-row .simulation-pin svg { display:block; width:19px; height:22px; }

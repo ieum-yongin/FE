@@ -1,0 +1,547 @@
+
+import SimulationPage from './components/SimulationPage'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import AlertsPage from './components/AlertsPage'
+import StationDetail from './components/StationDetail'
+import StationMap from './components/StationMap'
+import BrandLogo from './components/BrandLogo'
+import SidebarIcon from './components/SidebarIcon'
+import FigmaUiIcon from './components/FigmaUiIcon'
+import busIconUrl from './assets/figma/station-bus.svg'
+import {
+  getStationList,
+  getStationDetail,
+  getStationUsage,
+  getStationExtraDetails,
+  USE_STATION_MOCK,
+} from './services/stationApi'
+import './App.css'
+
+const menus = [
+  { id: 'map', label: '지도' },
+  { id: 'alert', label: '이용 급변 알림' },
+  { id: 'simulation', label: '만약에 시뮬레이션' },
+]
+
+function Sidebar({ activeMenu, onMenuChange, collapsed, onToggle }) {
+  const touchStartX = useRef(null)
+
+  function handleTouchStart(event) {
+    touchStartX.current = event.touches[0]?.clientX ?? null
+  }
+
+  function handleTouchEnd(event) {
+    if (touchStartX.current == null) return
+    const endX = event.changedTouches[0]?.clientX
+    if (endX == null) return
+    const delta = endX - touchStartX.current
+    touchStartX.current = null
+    if (delta < -55 && !collapsed) onToggle(true)
+    if (delta > 55 && collapsed) onToggle(false)
+  }
+
+  return (
+    <aside
+      className={`sidebar ${collapsed ? 'collapsed' : ''}`}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      aria-label="사이드바"
+    >
+      <div className="sidebar-logo" title="이음 · 용인 교통 정보">
+        <BrandLogo collapsed={collapsed} />
+      </div>
+
+      <nav className="sidebar-nav" aria-label="주 메뉴">
+        {menus.map(menu => (
+          <button
+            key={menu.id}
+            type="button"
+            title={collapsed ? menu.label : undefined}
+            aria-label={menu.label}
+            aria-current={activeMenu === menu.id ? 'page' : undefined}
+            className={`nav-item ${activeMenu === menu.id ? 'active' : ''}`}
+            onClick={() => onMenuChange(menu.id)}
+          >
+            <span className="nav-icon" aria-hidden="true"><SidebarIcon type={menu.id} /></span>
+            {!collapsed && <span className="nav-label">{menu.label}</span>}
+            {menu.id === 'alert' && <span className="notification-dot" />}
+          </button>
+        ))}
+      </nav>
+
+      <button
+        type="button"
+        className="sidebar-handle"
+        aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
+        aria-expanded={!collapsed}
+        onClick={() => onToggle(!collapsed)}
+        title={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
+      >
+        {collapsed ? '›' : '‹'}
+      </button>
+    </aside>
+  )
+}
+
+function Header({ children }) {
+  return (
+    <header className="header">
+      {children ?? null}
+    </header>
+  )
+}
+
+// 확장 상세 API에 이용 통계가 포함되어 있을 때만 보완합니다.
+function normalizeExtraStationStats(raw) {
+  if (!raw || typeof raw !== 'object') return {}
+  const usage = raw.usage && typeof raw.usage === 'object' ? raw.usage : {}
+  const v = (camel, snake, alt) => raw[camel] ?? raw[snake] ?? usage[camel] ?? usage[snake] ?? raw[alt] ?? usage[alt] ?? null
+  return {
+    averageBoarding: v('averageBoarding', 'average_daily_boarding', 'average_boarding'),
+    averageAlighting: v('averageAlighting', 'average_daily_alighting', 'average_alighting'),
+    transferRate: v('transferRate', 'transfer_rate', 'transfer_ratio'),
+    rank: raw.city_boarding_rank ?? usage.city_boarding_rank ?? v('rank', 'boarding_rank', 'yongin_rank'),
+    rankTotal: v('rankTotal', 'rank_total', 'total_stations'),
+  }
+}
+
+function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCloseStation, loading, error, onRetry, query, riskFilter }) {
+  const [selectedStation, setSelectedStation] = useState(null)
+  const [detailError, setDetailError] = useState('')
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [extraLoad, setExtraLoad] = useState({ loading: false, errors: [] })
+  const [detailReloadKey, setDetailReloadKey] = useState(0)
+  const [showRiskLegend, setShowRiskLegend] = useState(true)
+
+  useEffect(() => {
+    if (selectedId == null) {
+      setSelectedStation(null)
+      setDetailLoading(false)
+      setDetailError('')
+      setExtraLoad({ loading: false, errors: [] })
+      return
+    }
+
+    const controller = new AbortController()
+
+    async function loadDetail() {
+      setDetailLoading(true)
+      setDetailError('')
+      setExtraLoad({ loading: true, errors: [] })
+      setSelectedStation(null)
+
+      try {
+        const data = await getStationDetail(
+          selectedId,
+          { signal: controller.signal }
+        )
+
+        if (!controller.signal.aborted) {
+          if (data) {
+            // 목록의 좌표 정보를 보존
+            const listStation = stations.find(
+              station =>
+                String(station.id) === String(selectedId)
+            )
+
+            const initial = {
+              ...listStation,
+              ...data,
+              // 상세 API에서 누락된 필드는 지도/목록 정보를 보존합니다.
+              risk: data.risk !== 'unknown' ? data.risk : (listStation?.risk ?? 'unknown'),
+              riskLabel: data.risk !== 'unknown' ? data.riskLabel : (listStation?.riskLabel ?? '자료 없음'),
+              averageBoarding: data.averageBoarding ?? listStation?.averageBoarding ?? null,
+              averageAlighting: data.averageAlighting ?? listStation?.averageAlighting ?? null,
+              routeCount: data.routeCount ?? listStation?.routeCount ?? null,
+              transferRate: data.transferRate ?? listStation?.transferRate ?? null,
+              latitude: data.latitude ?? listStation?.latitude ?? null,
+              longitude: data.longitude ?? listStation?.longitude ?? null,
+            }
+            setSelectedStation(initial)
+            // 상세 기본 조회와 별개로 이용 통계/확장 정보 API를 가져옵니다.
+            // 둘 중 하나가 없거나 오류여도 기본 패널은 유지합니다.
+            // 기본 상세와 별개로 이용 통계/노선 정보를 읽습니다.
+            // 브라우저/프록시 캐시 및 일부 API의 콘텐츠 협상 문제를 방지하기 위해
+            // 첫 조회 실패 시 JSON 형식 파라미터를 붙여 한 번 더 조회합니다.
+            const retryJson = async (task, endpoint) => {
+              try { return await task() }
+              catch (firstError) {
+                if (controller.signal.aborted) throw firstError
+                try {
+                  const { api } = await import('./services/apiClient')
+                  return await api.get(`/api/stations/${encodeURIComponent(selectedId)}/${endpoint}/?format=json`, { signal: controller.signal, cache: 'no-store' })
+                } catch (secondError) { throw secondError }
+              }
+            }
+            const responses = await Promise.allSettled([
+              retryJson(() => getStationUsage(selectedId, { signal: controller.signal }), 'usage'),
+              retryJson(() => getStationExtraDetails(selectedId, { signal: controller.signal }), 'details'),
+            ])
+            if (controller.signal.aborted) return
+            const usageRaw = responses[0].status === 'fulfilled' ? responses[0].value : null
+            // fallback requests return snake_case directly; normalize it here too.
+            const usage = usageRaw && ('weekly_usage' in usageRaw || 'average_daily_boarding' in usageRaw)
+              ? {
+                  averageBoarding: usageRaw.average_daily_boarding ?? null,
+                  averageAlighting: usageRaw.average_daily_alighting ?? null,
+                  transferRate: usageRaw.transfer_ratio ?? null,
+                  rank: usageRaw.city_boarding_rank ?? null,
+                  weeklyUsage: usageRaw.weekly_usage ?? [],
+                  weekdayUsage: usageRaw.weekday_usage ?? [],
+                  boardingRatio: usageRaw.boarding_ratio ?? null,
+                  stopProfile: usageRaw.stop_profile ?? null,
+                }
+              : usageRaw
+            const extra = responses[1].status === 'fulfilled' ? responses[1].value : null
+            const details = normalizeExtraStationStats(extra)
+            const errors = responses.flatMap((result, index) => result.status === 'rejected'
+              ? [`${index === 0 ? '사용 통계' : '주변 정류소·노선'} API: ${result.reason?.message || '요청 실패'}`]
+              : [])
+            setExtraLoad({ loading: false, errors })
+            setSelectedStation({
+              ...initial,
+              averageBoarding: usage?.averageBoarding ?? details.averageBoarding ?? initial.averageBoarding,
+              averageAlighting: usage?.averageAlighting ?? details.averageAlighting ?? initial.averageAlighting,
+              transferRate: usage?.transferRate ?? details.transferRate ?? initial.transferRate,
+              rank: usage?.rank ?? details.rank ?? initial.rank ?? null,
+              rankTotal: usage?.rankTotal ?? details.rankTotal ?? initial.rankTotal ?? null,
+              weeklyUsage: usage?.weeklyUsage ?? [],
+              weekdayUsage: usage?.weekdayUsage ?? [],
+              boardingRatio: usage?.boardingRatio ?? null,
+              stopProfile: usage?.stopProfile ?? null,
+              nearbyStations: Array.isArray(extra?.nearby_stations) ? extra.nearby_stations : [],
+              routes: Array.isArray(extra?.routes) ? extra.routes : initial.routes ?? [],
+              routeOverlaps: Array.isArray(extra?.route_overlaps) ? extra.route_overlaps : [],
+            })
+          } else {
+            setDetailError('정류소를 찾지 못했습니다.')
+          }
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setExtraLoad({ loading: false, errors: [] })
+          setDetailError(err.message)
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setDetailLoading(false)
+        }
+      }
+    }
+
+    loadDetail()
+
+    return () => controller.abort()
+  }, [selectedId, stations, detailReloadKey])
+
+  function closeDetail() {
+    onCloseStation()
+    setSelectedStation(null)
+    setDetailError('')
+  }
+
+  function handleSelectStation(station) {
+    onSelectStation(station.id)
+  }
+
+  return (
+    <div className="map-screen">
+      <div className="map-page">
+      <StationMap
+        stations={filteredStations}
+        selectedStation={selectedStation}
+        onSelect={handleSelectStation}
+      />
+
+      {!USE_STATION_MOCK && (
+        <div className="map-data-status-area" aria-live="polite">
+          {loading ? (
+            <div className="map-data-status" role="status">
+              <span className="map-data-status-spinner" aria-hidden="true" />
+              <div><strong>정류소 정보를 불러오는 중</strong><p>서버에서 지도 데이터를 확인하고 있어요.</p></div>
+            </div>
+          ) : error ? (
+            <div className="map-data-status" role="alert">
+              <span className="map-data-status-symbol" aria-hidden="true">!</span>
+              <div><strong>정류소 정보를 불러오지 못했어요</strong><p>{error}</p>
+                <button className="map-data-retry" type="button" onClick={onRetry}>다시 시도</button>
+              </div>
+            </div>
+          ) : stations.length === 0 ? (
+            <div className="map-data-status" role="status">
+              <span className="map-data-status-symbol" aria-hidden="true">⌕</span>
+              <div><strong>등록된 정류소가 없습니다</strong><p>현재 서버에 정류소 데이터가 없어요. 데이터 등록 후 지도에 표시됩니다.</p>
+                <button className="map-data-retry" type="button" onClick={onRetry}>새로고침</button>
+              </div>
+            </div>
+          ) : filteredStations.length === 0 ? (
+            <div className="map-data-status" role="status">
+              <span className="map-data-status-symbol" aria-hidden="true">⌕</span>
+              <div><strong>검색 조건에 맞는 정류소가 없습니다</strong><p>{query.trim() || riskFilter !== 'all' ? '검색어나 위험도 필터를 변경해 보세요.' : '표시할 정류소가 없습니다.'}</p></div>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Figma: 지도 위에 항상 접근할 수 있는 위험도 범례 */}
+      <aside className={`map-risk-guide ${showRiskLegend ? '' : 'is-collapsed'}`} aria-label="위험도 안내">
+        {showRiskLegend ? (
+          <>
+            <div className="map-risk-guide-content">
+              <div className="map-risk-levels">
+                <strong className="map-risk-heading">위험도 안내</strong>
+                <div className="map-risk-level"><span className="map-risk-symbol danger"><img src={busIconUrl} alt="" /></span><b>위험</b><small>노선 변경으로 이용 집중 예상</small></div>
+                <div className="map-risk-level"><span className="map-risk-symbol warning"><img src={busIconUrl} alt="" /></span><b>주의</b><small>이용 변화 관찰 필요</small></div>
+                <div className="map-risk-level"><span className="map-risk-symbol stable"><img src={busIconUrl} alt="" /></span><b>안정</b><small>노선 이용 영향이 적음</small></div>
+              </div>
+              <div className="map-risk-explainer">
+                <strong className="map-risk-heading">표시 정보</strong>
+                <span className="map-risk-bus-icon" aria-hidden="true"><img src={busIconUrl} alt="" /></span>
+                <small>버스 정류소 위치</small>
+                <small>아래 숫자는 평균 승차 인원</small>
+              </div>
+            </div>
+            <button type="button" className="map-risk-dismiss" onClick={() => setShowRiskLegend(false)} aria-label="위험도 안내 닫기">×</button>
+          </>
+        ) : (
+          <button type="button" className="map-risk-restore" onClick={() => setShowRiskLegend(true)}>위험도 안내 보기</button>
+        )}
+      </aside>
+
+      {detailLoading && (
+        <div
+          role="status"
+          style={{
+            position: 'absolute',
+            zIndex: 600,
+            top: 60,
+            right: 16,
+            padding: 16,
+            borderRadius: 12,
+            background: '#fff',
+          }}
+        >
+          상세정보 불러오는 중...
+        </div>
+      )}
+
+      {detailError && (
+        <div
+          role="alert"
+          style={{
+            position: 'absolute',
+            zIndex: 600,
+            top: 60,
+            right: 16,
+            padding: 16,
+            borderRadius: 12,
+            background: '#fff',
+          }}
+        >
+          <p>{detailError}</p>
+          <button type="button" onClick={closeDetail}>
+            닫기
+          </button>
+        </div>
+      )}
+
+      {selectedStation && (
+        <StationDetail
+          station={selectedStation}
+          extraLoad={extraLoad}
+          onRetryExtra={() => setDetailReloadKey(n => n + 1)}
+          onClose={closeDetail}
+        />
+      )}
+      </div>
+    </div>
+  )
+}
+
+function App() {
+  const [activeMenu, setActiveMenu] = useState('map')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [stations, setStations] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [riskFilter, setRiskFilter] = useState('all')
+  const [selectedId, setSelectedId] = useState(null)
+  const searchAreaRef = useRef(null)
+  const searchInputRef = useRef(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadStations() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const data = await getStationList({
+          signal: controller.signal,
+        })
+
+        if (!controller.signal.aborted) {
+          setStations(data)
+        }
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setError(err.message)
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadStations()
+
+    return () => controller.abort()
+  }, [reloadKey])
+
+  const filteredStations = useMemo(() => {
+    const search = query.trim().toLowerCase()
+
+    return stations.filter(station => {
+      const searchable = (
+        String(station.name ?? '') +
+        ' ' +
+        String(station.id ?? '')
+      ).toLowerCase()
+
+      const matchesSearch = searchable.includes(search)
+      const matchesRisk =
+        riskFilter === 'all' ||
+        station.risk === riskFilter
+
+      return matchesSearch && matchesRisk
+    })
+  }, [stations, query, riskFilter])
+
+  useEffect(() => {
+    if (!searchOpen) return
+
+    function handleOutsidePointer(event) {
+      if (!searchAreaRef.current?.contains(event.target)) {
+        setSearchOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handleOutsidePointer)
+    return () => document.removeEventListener('pointerdown', handleOutsidePointer)
+  }, [searchOpen])
+
+  function handleSelectStation(station) {
+    setSelectedId(station.id)
+    setActiveMenu('map')
+    setSearchOpen(false)
+    searchInputRef.current?.blur()
+  }
+
+  function handleMenuChange(nextMenu) {
+    setActiveMenu(nextMenu)
+    setSearchOpen(false)
+  }
+
+  return (
+    <div className="app">
+      <Sidebar
+        activeMenu={activeMenu}
+        onMenuChange={handleMenuChange}
+        collapsed={sidebarCollapsed}
+        onToggle={setSidebarCollapsed}
+      />
+      <main className="main">
+        <Header>
+          <div className="header-tools">
+            <div className="map-search-area header-map-search" ref={searchAreaRef}>
+              <label className="map-top-search">
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={query}
+                  onFocus={() => setSearchOpen(true)}
+                  onChange={event => { setQuery(event.target.value); setSearchOpen(true) }}
+                  onKeyDown={event => {
+                    if (event.key === 'Escape') {
+                      setSearchOpen(false)
+                      event.currentTarget.blur()
+                    }
+                  }}
+                  aria-expanded={searchOpen}
+                  aria-controls="map-station-search-results"
+                  aria-haspopup="listbox"
+                  placeholder="정류소명 또는 번호"
+                  aria-label="정류소명 또는 번호 검색"
+                />
+                <FigmaUiIcon name="search" className="map-top-search-icon" />
+              </label>
+              {searchOpen && (
+                <section id="map-station-search-results" className="map-search-dropdown" aria-label="정류소 검색 결과">
+                  <div className="map-search-dropdown-head">
+                    <strong>정류소 검색</strong>
+                    <button type="button" onClick={() => setSearchOpen(false)} aria-label="검색 결과 닫기">×</button>
+                  </div>
+                  <label className="map-risk-filter-label">
+                    위험도
+                    <select value={riskFilter} onChange={event => setRiskFilter(event.target.value)} aria-label="위험도 필터">
+                      <option value="all">전체 위험도</option>
+                      <option value="danger">위험</option>
+                      <option value="warning">주의</option>
+                      <option value="stable">안정</option>
+                      <option value="unknown">미분류</option>
+                    </select>
+                  </label>
+                  {!USE_STATION_MOCK && <p className="map-search-message">실제 API 데이터 모드</p>}
+                  {loading && <p className="map-search-message">정류소 목록 불러오는 중...</p>}
+                  {error && <div role="alert" className="map-search-message"><p>{error}</p><button type="button" onClick={() => setReloadKey(n => n + 1)}>다시 시도</button></div>}
+                  {!loading && !error && (
+                    <>
+                      <p className="map-search-message">검색 결과 {filteredStations.length}곳</p>
+                      <div className="map-search-results">
+                        {filteredStations.slice(0, 30).map(station => (
+                          <button type="button" key={station.id}
+                            className={`map-search-option ${String(selectedId) === String(station.id) ? 'is-selected' : ''}`}
+                            onClick={() => handleSelectStation(station)}>
+                            <strong>{station.name}</strong>
+                            <small>{station.riskLabel || '위험도 미확인'}</small>
+                          </button>
+                        ))}
+                        {filteredStations.length === 0 && <p className="map-search-message">검색 결과가 없습니다.</p>}
+                        {filteredStations.length > 30 && <p className="map-search-message">검색 결과가 많아 처음 30곳만 표시합니다.</p>}
+                      </div>
+                    </>
+                  )}
+                </section>
+              )}
+            </div>
+          </div>
+        </Header>
+        {activeMenu === 'map' ? (
+          <MapPage
+            stations={stations}
+            filteredStations={filteredStations}
+            selectedId={selectedId}
+            onSelectStation={setSelectedId}
+            onCloseStation={() => setSelectedId(null)}
+            loading={loading}
+            error={error}
+            onRetry={() => setReloadKey(key => key + 1)}
+            query={query}
+            riskFilter={riskFilter}
+          />
+        ) : activeMenu === 'alert' ? (
+          <AlertsPage />
+        ) : (
+          <SimulationPage />
+        )}
+      </main>
+    </div>
+  )
+}
+
+export default App
