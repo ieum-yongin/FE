@@ -119,11 +119,8 @@
 .ieum-marker.selected { outline: 3px solid #1c8b1d; outline-offset: 2px; }
 .ieum-leaflet-icon .ieum-marker { transform: none; }
 
-/* 실제 정류소가 밀집한 구간은 숫자 클러스터로 요약합니다. */
-.ieum-cluster-leaflet-icon {
-  background: transparent;
-  border: 0;
-}
+/* IEUM signature map clusters: subdued, legible and consistent with the sidebar. */
+.ieum-cluster-leaflet-icon { background: transparent; border: 0; }
 .ieum-cluster {
   box-sizing: border-box;
   width: 100%;
@@ -132,38 +129,86 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 3px solid #fff;
+  gap: 1px;
+  border: 2px solid rgba(255, 255, 255, .98);
   border-radius: 50%;
-  background: linear-gradient(145deg, #eaffca 5%, #80ed64 58%, #3cc83a 100%);
-  color: #173f21;
-  box-shadow: 0 3px 13px #00000040;
+  background: linear-gradient(145deg, #ffffff 8%, #edfce9 100%);
+  color: #224b30;
+  box-shadow: 0 0 0 3px rgba(98, 205, 88, .16), 0 5px 16px rgba(28, 72, 41, .17);
   font-family: Pretendard, Arial, sans-serif;
+  line-height: 1;
   text-align: center;
   cursor: pointer;
-  transition: transform .15s ease, box-shadow .15s ease;
+  user-select: none;
+  transition: transform .18s ease, box-shadow .18s ease;
 }
 .ieum-cluster.medium {
-  background: linear-gradient(145deg, #e2ffc6, #73e65e 58%, #34ba39);
+  background: linear-gradient(145deg, #fafff9 3%, #dff8d7 100%);
+  box-shadow: 0 0 0 3px rgba(98, 205, 88, .2), 0 5px 16px rgba(28, 72, 41, .17);
 }
 .ieum-cluster.large {
-  background: linear-gradient(145deg, #ceffbd, #5ddf4c 58%, #20a832);
+  background: linear-gradient(145deg, #f4ffef 0%, #c5f1b5 100%);
+  box-shadow: 0 0 0 4px rgba(98, 205, 88, .23), 0 6px 18px rgba(28, 72, 41, .19);
 }
 .ieum-cluster:hover {
-  transform: scale(1.08);
-  box-shadow: 0 4px 18px #0000004d;
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 0 0 4px rgba(98, 205, 88, .26), 0 8px 22px rgba(28, 72, 41, .23);
 }
 .ieum-cluster-number {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 800;
-  line-height: 1.15;
+  letter-spacing: -.5px;
+  line-height: 1.12;
   font-variant-numeric: tabular-nums;
 }
-.ieum-cluster.large .ieum-cluster-number { font-size: 18px; }
+.ieum-cluster.large .ieum-cluster-number { font-size: 17px; }
 .ieum-cluster-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: #547b5b;
   font-size: 9px;
-  line-height: 1.2;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: -.15px;
+  line-height: 1.1;
 }
-@media (prefers-reduced-motion: reduce) {
-  .ieum-cluster { transition: none; }
+.ieum-cluster-dot { width: 4px; height: 4px; border-radius: 50%; background: #5ac54b; }
+@media (prefers-reduced-motion: reduce) { .ieum-cluster { transition: none; } }
+
+/* NAVER Dynamic Map SDK overlay elements */
+.ieum-naver-map { width: 100%; height: 100%; }
+.ieum-naver-station-marker { display: flex; flex-direction: column; align-items: center; width: 58px; cursor: pointer; }
+.ieum-naver-station-marker .ieum-marker-count { display: inline-block; margin-top: 2px; }
+.ieum-naver-map-error {
+  position: absolute; z-index: 430; left: 50%; top: 65px; transform: translateX(-50%);
+  max-width: min(440px, 88%); padding: 14px 18px; background: #fff; color: #374237;
+  border: 1px solid #d8e1d4; border-radius: 12px; box-shadow: 0 4px 16px #0002;
+  font-size: 13px; line-height: 1.5; text-align: center;
 }
+/* Precise, quieter station pins while preserving original risk colors and icons. */
+.ieum-naver-map .ieum-cluster { border-width: 2px; }
+.ieum-naver-station-marker .ieum-marker {
+  border-radius: 15px;
+  box-shadow: 0 3px 12px rgba(23, 48, 31, .23);
+}
+.ieum-naver-station-marker .ieum-marker-count {
+  margin-top: 4px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(30, 60, 32, .06);
+  box-shadow: 0 3px 12px rgba(23, 48, 31, .16);
+  font-size: 11px;
+  font-weight: 700;
+}
+.ieum-naver-station-marker:hover .ieum-marker { transform: translateY(-3px); }
+.station-map-demo-notice {
+  border: 1px solid rgba(222, 232, 220, .95);
+  border-radius: 999px;
+  padding: 8px 14px;
+  color: #51705a;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 4px 15px rgba(24, 57, 30, .1);
+  font-size: 11px;
+  font-weight: 650;
+}
+

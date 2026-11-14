@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import StationMap from './StationMap'
 import SimulationResult from './SimulationResult'
 import { getStationMap } from '../services/stationApi'
+import { api } from '../services/apiClient'
+import { getGeoPosition } from './naverMapCore'
 import { getRoutes, createSimulation, getSimulation, getSimulationStops, USE_SIMULATION_MOCK } from '../services/simulations'
 import FigmaUiIcon from './FigmaUiIcon'
 import './SimulationPage.css'
@@ -11,12 +13,38 @@ function routeDescription(route) {
   return route.stops == null ? direction : `${direction} / 정류소 ${route.stops}곳`
 }
 
+
+// Route detail responses vary by backend version. Only draw when the server
+// supplies ordered stop coordinates; never fabricate a route from station names.
+function extractOrderedRouteStops(payload, knownStations) {
+  const arrays = [payload?.ordered_stops, payload?.route_stops, payload?.stations,
+    payload?.stop_list, payload?.stops, payload?.coordinates, payload?.path, payload?.geometry?.coordinates]
+  const raw = arrays.find(value => Array.isArray(value) && value.length > 1)
+  if (!raw) return []
+  const lookup = new Map(knownStations.map(station => [String(station.id), station]))
+  const entries = raw.map((entry, index) => {
+    if (Array.isArray(entry) && entry.length >= 2 && entry.every(value => Number.isFinite(Number(value)))) {
+      // GeoJSON geometry.coordinates are longitude, latitude; otherwise use lat, lng.
+      const geojson = raw === payload?.geometry?.coordinates
+      return { pos: geojson ? { latitude: entry[1], longitude: entry[0] } : { latitude: entry[0], longitude: entry[1] }, index }
+    }
+    const id = entry?.station_id ?? entry?.station?.id ?? entry?.stop_id ?? entry?.id ?? entry
+    const info = typeof entry === 'object' && entry !== null ? entry : {}
+    return { pos: getGeoPosition(info) ? info : (getGeoPosition(info.station || {}) ? info.station : lookup.get(String(id))), index,
+      sequence: info.sequence ?? info.stop_sequence ?? info.order ?? info.stop_order ?? null }
+  })
+  // Preserve server array order unless every stop has an explicit sequence.
+  if (entries.every(item => item.sequence != null)) entries.sort((a, b) => Number(a.sequence) - Number(b.sequence))
+  return entries.map(item => item.pos).filter(item => getGeoPosition(item))
+}
+
 export default function SimulationPage() {
   const [routes, setRoutes] = useState([])
   const [routesLoading, setRoutesLoading] = useState(true)
   const [routesError, setRoutesError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
   const [mapStations, setMapStations] = useState([])
+  const [routePaths, setRoutePaths] = useState([])
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState([])
@@ -61,6 +89,23 @@ export default function SimulationPage() {
   const selectedRoutes = useMemo(() => selectedIds
     .map(id => routes.find(route => String(route.id) === String(id)))
     .filter(Boolean), [selectedIds, routes])
+  useEffect(() => {
+    const controller = new AbortController()
+    if (!suspendedIds.length || !mapStations.length) {
+      setRoutePaths([])
+      return () => controller.abort()
+    }
+    Promise.all(suspendedIds.map(async id => {
+      try {
+        const detail = await api.get(`/api/routes/${encodeURIComponent(id)}/`, { signal: controller.signal })
+        return extractOrderedRouteStops(detail, mapStations)
+      } catch { return [] }
+    })).then(paths => {
+      if (!controller.signal.aborted) setRoutePaths(paths.filter(path => path.length >= 2))
+    })
+    return () => controller.abort()
+  }, [suspendedIds, mapStations])
+
   const availableRoutes = useMemo(() => {
     const keyword = query.trim().toLowerCase()
     return routes.filter(route =>
@@ -144,7 +189,7 @@ export default function SimulationPage() {
   return (
     <div className="simulation-page">
       <div className="simulation-map-background">
-        <StationMap stations={mapStations} onSelect={() => {}} simulationStops={result?.status === 'COMPLETED' ? result.affectedStops : null} focusedSimulationStop={focusedStop} onSimulationStopSelect={setFocusedStop} />
+        <StationMap stations={mapStations} onSelect={() => {}} simulationStops={result?.status === 'COMPLETED' ? result.affectedStops : null} simulationPaths={routePaths} focusedSimulationStop={focusedStop} onSimulationStopSelect={setFocusedStop} />
       </div>
       <section className="simulation-panel" aria-label="만약에 시뮬레이션">
         <div className="simulation-panel-scroll">
