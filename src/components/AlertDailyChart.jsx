@@ -31,14 +31,14 @@ export default function AlertDailyChart({ daily }) {
   }
   return (
     <div className="alerts-chart">
-      <h3>일별 이용량 비교</h3>
-      <div className="alerts-chart-legend"><span className="baseline">평소 기준</span><span className="observed">실제 관측</span></div>
+      <h3>일별 사용 추이</h3>
+      <div className="alerts-chart-legend"><span className="baseline">이전 기간</span><span className="observed">현재 관측</span></div>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="날짜별 평소 기준 이용량과 실제 관측 이용량 비교 차트">
         {[0, 0.5, 1].map(tick => {
           const val = max * tick
           return <g key={tick}><line x1={left} x2={W-right} y1={y(val)} y2={y(val)} stroke="#e8eee6"/><text x={left-5} y={y(val)+4} fontSize="10" textAnchor="end" fill="#777">{Math.round(val).toLocaleString('ko-KR')}</text></g>
         })}
-        {[["baseline_usage", "#7b8ca3"], ["observed_usage", "#ed725d"]].map(([key, color]) => (
+        {[["baseline_usage", "#5063ff"], ["observed_usage", "#ff5050"]].map(([key, color]) => (
           <g key={key}>
             {segments(key).map((part, i) => <polyline key={i} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" points={part.map(([idx, num]) => `${x(idx)},${y(num)}`).join(' ')}/>)}
             {records.map((record, idx) => {
@@ -49,7 +49,7 @@ export default function AlertDailyChart({ daily }) {
         ))}
         {[0, Math.floor((records.length-1)/2), records.length-1].filter((v,i,a)=>a.indexOf(v)===i).map(i => <text key={i} x={x(i)} y={H-11} fontSize="10" fill="#777" textAnchor="middle">{String(records[i].service_date).slice(5)}</text>)}
       </svg>
-      <p className="alerts-chart-note">결측값은 선으로 연결하지 않습니다. 수치는 명세서의 일별 자료 기준입니다.</p>
+      
     </div>
   )
 }

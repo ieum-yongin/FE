@@ -168,3 +168,10 @@
 .simulation-result .simulation-save:focus-visible { outline:2px solid #267b1d; outline-offset:2px; }
 .simulation-result .simulation-save:disabled { cursor:wait; opacity:.65; }
 .simulation-save-success { color:#226b1c; font-size:12px; margin:7px 0 0; }
+
+/* 시뮬레이션 위험도 변경 목록: 지도 위치핀 아이콘 (기존 ♧ 대신) */
+.simulation-affected-row .simulation-pin {
+  display:inline-flex; align-items:center; justify-content:center;
+  flex:0 0 21px; width:21px; height:24px; color:#727272;
+}
+.simulation-affected-row .simulation-pin svg { display:block; width:19px; height:22px; }

@@ -21,17 +21,13 @@ const FILTERS = [
   ['expected', '예상된 변화'],
 ]
 
-function formatDailyUsage(value) {
-  return value == null || !Number.isFinite(Number(value)) ? '자료 없음' : `${Math.round(Number(value)).toLocaleString('ko-KR')}명/일`
-}
-
 function ChangeIcon({ type }) {
   return (
     <span
       className={`alert-change-icon ${type}`}
       aria-hidden="true"
     >
-      {type === 'increase' ? '↑' : '↓'}
+      {type === 'increase' ? '▲' : '▼'}
     </span>
   )
 }
@@ -51,6 +47,7 @@ export default function AlertsPage() {
   const [selectedId, setSelectedId] = useState(null)
   const [showGuide, setShowGuide] = useState(true)
   const [showMore, setShowMore] = useState(false)
+  const [detailTab, setDetailTab] = useState('trend')
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState('')
@@ -63,6 +60,7 @@ export default function AlertsPage() {
 
   // 정류소 선택이 바뀌면 이전 알림의 메모 및 검토 메시지를 지웁니다.
   useEffect(() => {
+    setDetailTab('trend')
     setReviewNote('')
     setReviewError('')
     setReviewSuccess('')
@@ -213,7 +211,7 @@ export default function AlertsPage() {
 
 
   return (
-    <div className="alerts-page">
+    <div className={`alerts-page${selected ? ' has-selected-alert' : ''}`}>
       <AlertsLeafletMap
         alerts={geoAlerts}
         selected={selected}
@@ -386,98 +384,109 @@ export default function AlertsPage() {
           className="alerts-detail"
           aria-label="선택한 알림 상세"
         >
-          <button
-            type="button"
-            className="alerts-close"
-            onClick={() => setSelectedId(null)}
-            aria-label="상세 닫기"
-          >
-            ×
-          </button>
+          <div className="alerts-detail-header">
+            <div className="alerts-detail-header-title">
+              <div className="alerts-detail-title-row">
+                <h2>{selected.stationName}</h2>
+                <span className={`alerts-status ${selected.status}`}>
+                  {STATUS_LABEL[selected.status] ?? '미분류'}
+                </span>
+              </div>
+              <p className="alerts-detail-subtitle">
+                {selected.stationId != null ? `정류소 번호 ${selected.stationId}` : '급변 알림 정류소'}
+                <span className="alerts-detail-period">{' · '}{selected.period}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              className="alerts-close alerts-detail-close"
+              onClick={() => setSelectedId(null)}
+              aria-label="상세 닫기"
+            >
+              ×
+            </button>
+          </div>
 
-          <h2>{selected.stationName}</h2>
+          <div className="alerts-figma-summary">
+            <div className="alerts-figma-metrics">
+              <div>
+                <span>평소 하루 이용량(승차+하차)</span>
+                <strong className="is-figma-count">{detail?.baseline_daily_usage == null ? '자료 없음' : `${Number(detail.baseline_daily_usage).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}명`}</strong>
+              </div>
+              <div>
+                <span>변화 정도</span>
+                {detail?.usage_ratio != null && Number.isFinite(Number(detail.usage_ratio)) ? (
+                  <strong className="is-figma-count">
+                    평소의 {Math.round(Number(detail.usage_ratio) * 100)}% 수준
+                    <small>({Number(detail.usage_ratio) >= 1 ? '+' : ''}{Math.round((Number(detail.usage_ratio) - 1) * 100)}%)</small>
+                  </strong>
+                ) : (
+                  <strong className="is-figma-count">{selected.ratio == null ? '자료 없음' : `평소 ${selected.ratio}배`}</strong>
+                )}
+              </div>
+            </div>
+          </div>
 
-          <span
-            className={
-              `alerts-status ${selected.status}`
-            }
-          >
-            {STATUS_LABEL[selected.status] ?? '미분류'}
-          </span>
+          <div className="alerts-detail-tabs" role="tablist" aria-label="알림 상세 정보">
+            <button type="button" role="tab" aria-selected={detailTab === 'trend'} className={detailTab === 'trend' ? 'active' : ''} onClick={() => setDetailTab('trend')}>이용 추이</button>
+            <button type="button" role="tab" aria-selected={detailTab === 'station'} className={detailTab === 'station' ? 'active' : ''} onClick={() => setDetailTab('station')}>정류소 정보</button>
+          </div>
 
-          <p>
-            <strong>변화 유형</strong>
-            {' · '}
-            이용 {selected.type === 'increase'
-              ? '증가'
-              : '감소'}
-          </p>
-
-          <p>
-            <strong>탐지 기간</strong>
-            {' · '}
-            {selected.period}
-          </p>
-
-          <p>
-            <strong>변화량</strong>
-            {' · '}
-            평소 대비 {selected.ratio}배
-          </p>
-
-          {(detail?.analysis_summary || detail?.reason || selected.reason) && (
-            <p>
-              <strong>참고</strong>
-              {' · '}
-              {detail?.analysis_summary || detail?.reason || selected.reason}
-            </p>
+          {detailTab === 'trend' ? (
+            <div role="tabpanel" className="alerts-detail-data" aria-busy={detailLoading}>
+              {detailLoading && <p role="status">일별 이용량 데이터를 불러오는 중입니다.</p>}
+              {detailError && (
+                <div role="alert" className="alerts-detail-error">
+                  <p>{detailError}</p>
+                  <button type="button" onClick={() => setDetailReloadKey(value => value + 1)}>다시 시도</button>
+                </div>
+              )}
+              {!detailLoading && !detailError && detail && (
+                <>
+                  <AlertDailyChart daily={detail.daily} />
+                </>
+              )}
+            </div>
+          ) : (
+            <div role="tabpanel" className="alerts-station-info">
+              <p><strong>정류소</strong><span>{selected.stationName}</span></p>
+              <p><strong>정류소 ID</strong><span>{selected.stationId ?? '자료 없음'}</span></p>
+              <p><strong>탐지 기간</strong><span>{selected.period}</span></p>
+              <p><strong>분류</strong><span>{STATUS_LABEL[selected.status] ?? '미분류'}</span></p>
+            </div>
           )}
 
-          <div className="alerts-detail-data" aria-busy={detailLoading}>
-            {detailLoading && <p role="status">일별 이용량 데이터를 불러오는 중입니다.</p>}
-            {detailError && (
-              <div role="alert" className="alerts-detail-error">
-                <p>{detailError}</p>
-                <button type="button" onClick={() => setDetailReloadKey(value => value + 1)}>다시 시도</button>
-              </div>
-            )}
-            {!detailLoading && !detailError && detail && (
-              <>
-                <div className="alerts-detail-numbers">
-                  <span>평소 평균 <strong>{formatDailyUsage(detail.baseline_daily_usage)}</strong></span>
-                  <span>관측 평균 <strong>{formatDailyUsage(detail.observed_daily_usage)}</strong></span>
-                </div>
-                <AlertDailyChart daily={detail.daily} />
-              </>
-            )}
-          </div>
+          {(detail?.analysis_summary || detail?.reason || selected.reason) && (
+            <section className="alerts-analysis-summary" aria-label="분석 요약">
+              <strong>분석 요약</strong>
+              <p>{detail?.analysis_summary || detail?.reason || selected.reason}</p>
+            </section>
+          )}
 
           <div className="alerts-review-area">
             <div className="alerts-review-heading">
-              <strong>검토 상태</strong>
+              <label className="alerts-review-label" htmlFor="alerts-review-note">원인 메모</label>
               <span className="alerts-review-current">{({
                 NEW: '신규', REVIEWING: '검토 중', RESOLVED: '검토 완료',
               })[reviewStatus ?? detail?.review_status ?? selected.review_status] ?? '상태 확인 중'}</span>
             </div>
-            <p className="alerts-review-hint">위의 ‘확인 필요’는 알림 분류이며, 아래 버튼은 검토 이력을 등록합니다.</p>
-            <label className="alerts-review-label" htmlFor="alerts-review-note">검토 메모 (선택)</label>
             <textarea
               id="alerts-review-note"
               className="alerts-review-note"
               rows={3}
               maxLength={1000}
-              placeholder="예: 행사 일정 확인 중"
+              placeholder="예) 정류소 공사, 노선 변경, 운영 시간 조정 등"
               value={reviewNote}
               disabled={reviewSaving || USE_MOCK}
               onChange={e => setReviewNote(e.target.value)}
             />
             <div className="alerts-detail-actions">
-              <button type="button" onClick={() => saveReview('REVIEWING')} disabled={reviewSaving || detailLoading || USE_MOCK}>
-                {reviewSaving ? '저장 중…' : '검토 시작'}
+              <button type="button" onClick={() => saveReview((reviewStatus ?? detail?.review_status ?? selected.review_status) === 'REVIEWING' ? 'RESOLVED' : 'REVIEWING')} disabled={reviewSaving || detailLoading || USE_MOCK}>
+                {reviewSaving ? '저장 중…' : ((reviewStatus ?? detail?.review_status ?? selected.review_status) === 'REVIEWING' ? '✓ 검토 완료로 표시' : '✓ 검토 중으로 표시')}
               </button>
-              <button type="button" onClick={() => saveReview('RESOLVED')} disabled={reviewSaving || detailLoading || USE_MOCK}>
-                검토 완료
-              </button>
+              {(reviewStatus ?? detail?.review_status ?? selected.review_status) === 'RESOLVED' && (
+                <button type="button" className="alerts-review-reopen" onClick={() => saveReview('REVIEWING')} disabled={reviewSaving || detailLoading || USE_MOCK}>검토 다시 시작</button>
+              )}
             </div>
             {reviewError && <p className="alerts-review-feedback is-error" role="alert">{reviewError}</p>}
             {reviewSuccess && <p className="alerts-review-feedback is-success" role="status">{reviewSuccess}</p>}

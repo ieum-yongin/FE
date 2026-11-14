@@ -51,7 +51,6 @@ export default function SimulationResult({ result, selectedRoutes = [], onClose,
             <div className="simulation-stat warning"><div>🟡 노란불</div><strong>{countLabel(summary.caution_stop_count)}</strong></div>
             <div className="simulation-stat people"><div>👥 영향 인원</div><strong>{summary.estimated_affected_daily == null ? '자료 없음' : `${fmt(summary.estimated_affected_daily)}명/일`}</strong></div>
           </div>
-          <p className="simulation-result-note">백엔드에서 계산한 시뮬레이션 분석 결과입니다.</p>
         </>
       )}
       {completed && !summary && <p className="simulation-warning">분석이 완료됐지만 결과 요약 데이터가 없습니다.</p>}
@@ -65,7 +64,12 @@ export default function SimulationResult({ result, selectedRoutes = [], onClose,
           <div className="simulation-affected-list">
             {visible.map((stop, index) => (
               <button type="button" key={`${stop.id ?? index}-${index}`} className="simulation-affected-row" onClick={() => onSelectStop?.(stop)} title="지도에서 이 정류소 보기">
-                <span className="simulation-pin" aria-hidden="true">♧</span>
+                <span className="simulation-pin" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+                    <path d="M20 10c0 5.25-8 11.5-8 11.5S4 15.25 4 10a8 8 0 1 1 16 0Z" />
+                    <circle cx="12" cy="10" r="2.7" />
+                  </svg>
+                </span>
                 <strong>{stop.name || '정류소명 미확인'}</strong>
                 <span className={`simulation-risk-before ${riskStyle(stop.before_risk_level)}`}>{riskLabel(stop.before_risk_level)}</span>
                 <span aria-hidden="true">→</span>
@@ -88,7 +92,6 @@ export default function SimulationResult({ result, selectedRoutes = [], onClose,
         </>
       )}
       {!isMock && (result.detailFetchError || result.stopsFetchError) && <p className="simulation-warning">{result.detailFetchError || result.stopsFetchError}</p>}
-      {!isMock && <details className="simulation-server-details"><summary>서버 응답 확인</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>}
     </section>
   )
 }

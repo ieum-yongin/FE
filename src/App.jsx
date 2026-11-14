@@ -11,6 +11,8 @@ import busIconUrl from './assets/figma/station-bus.svg'
 import {
   getStationList,
   getStationDetail,
+  getStationUsage,
+  getStationExtraDetails,
   USE_STATION_MOCK,
 } from './services/stationApi'
 import './App.css'
@@ -89,10 +91,26 @@ function Header({ children }) {
   )
 }
 
+// 확장 상세 API에 이용 통계가 포함되어 있을 때만 보완합니다.
+function normalizeExtraStationStats(raw) {
+  if (!raw || typeof raw !== 'object') return {}
+  const usage = raw.usage && typeof raw.usage === 'object' ? raw.usage : {}
+  const v = (camel, snake, alt) => raw[camel] ?? raw[snake] ?? usage[camel] ?? usage[snake] ?? raw[alt] ?? usage[alt] ?? null
+  return {
+    averageBoarding: v('averageBoarding', 'average_daily_boarding', 'average_boarding'),
+    averageAlighting: v('averageAlighting', 'average_daily_alighting', 'average_alighting'),
+    transferRate: v('transferRate', 'transfer_rate', 'transfer_ratio'),
+    rank: raw.city_boarding_rank ?? usage.city_boarding_rank ?? v('rank', 'boarding_rank', 'yongin_rank'),
+    rankTotal: v('rankTotal', 'rank_total', 'total_stations'),
+  }
+}
+
 function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCloseStation, loading, error, onRetry, query, riskFilter }) {
   const [selectedStation, setSelectedStation] = useState(null)
   const [detailError, setDetailError] = useState('')
   const [detailLoading, setDetailLoading] = useState(false)
+  const [extraLoad, setExtraLoad] = useState({ loading: false, errors: [] })
+  const [detailReloadKey, setDetailReloadKey] = useState(0)
   const [showRiskLegend, setShowRiskLegend] = useState(true)
 
   useEffect(() => {
@@ -100,6 +118,7 @@ function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCl
       setSelectedStation(null)
       setDetailLoading(false)
       setDetailError('')
+      setExtraLoad({ loading: false, errors: [] })
       return
     }
 
@@ -108,6 +127,7 @@ function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCl
     async function loadDetail() {
       setDetailLoading(true)
       setDetailError('')
+      setExtraLoad({ loading: true, errors: [] })
       setSelectedStation(null)
 
       try {
@@ -124,7 +144,7 @@ function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCl
                 String(station.id) === String(selectedId)
             )
 
-            setSelectedStation({
+            const initial = {
               ...listStation,
               ...data,
               // 상세 API에서 누락된 필드는 지도/목록 정보를 보존합니다.
@@ -136,6 +156,62 @@ function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCl
               transferRate: data.transferRate ?? listStation?.transferRate ?? null,
               latitude: data.latitude ?? listStation?.latitude ?? null,
               longitude: data.longitude ?? listStation?.longitude ?? null,
+            }
+            setSelectedStation(initial)
+            // 상세 기본 조회와 별개로 이용 통계/확장 정보 API를 가져옵니다.
+            // 둘 중 하나가 없거나 오류여도 기본 패널은 유지합니다.
+            // 기본 상세와 별개로 이용 통계/노선 정보를 읽습니다.
+            // 브라우저/프록시 캐시 및 일부 API의 콘텐츠 협상 문제를 방지하기 위해
+            // 첫 조회 실패 시 JSON 형식 파라미터를 붙여 한 번 더 조회합니다.
+            const retryJson = async (task, endpoint) => {
+              try { return await task() }
+              catch (firstError) {
+                if (controller.signal.aborted) throw firstError
+                try {
+                  const { api } = await import('./services/apiClient')
+                  return await api.get(`/api/stations/${encodeURIComponent(selectedId)}/${endpoint}/?format=json`, { signal: controller.signal, cache: 'no-store' })
+                } catch (secondError) { throw secondError }
+              }
+            }
+            const responses = await Promise.allSettled([
+              retryJson(() => getStationUsage(selectedId, { signal: controller.signal }), 'usage'),
+              retryJson(() => getStationExtraDetails(selectedId, { signal: controller.signal }), 'details'),
+            ])
+            if (controller.signal.aborted) return
+            const usageRaw = responses[0].status === 'fulfilled' ? responses[0].value : null
+            // fallback requests return snake_case directly; normalize it here too.
+            const usage = usageRaw && ('weekly_usage' in usageRaw || 'average_daily_boarding' in usageRaw)
+              ? {
+                  averageBoarding: usageRaw.average_daily_boarding ?? null,
+                  averageAlighting: usageRaw.average_daily_alighting ?? null,
+                  transferRate: usageRaw.transfer_ratio ?? null,
+                  rank: usageRaw.city_boarding_rank ?? null,
+                  weeklyUsage: usageRaw.weekly_usage ?? [],
+                  weekdayUsage: usageRaw.weekday_usage ?? [],
+                  boardingRatio: usageRaw.boarding_ratio ?? null,
+                  stopProfile: usageRaw.stop_profile ?? null,
+                }
+              : usageRaw
+            const extra = responses[1].status === 'fulfilled' ? responses[1].value : null
+            const details = normalizeExtraStationStats(extra)
+            const errors = responses.flatMap((result, index) => result.status === 'rejected'
+              ? [`${index === 0 ? '사용 통계' : '주변 정류소·노선'} API: ${result.reason?.message || '요청 실패'}`]
+              : [])
+            setExtraLoad({ loading: false, errors })
+            setSelectedStation({
+              ...initial,
+              averageBoarding: usage?.averageBoarding ?? details.averageBoarding ?? initial.averageBoarding,
+              averageAlighting: usage?.averageAlighting ?? details.averageAlighting ?? initial.averageAlighting,
+              transferRate: usage?.transferRate ?? details.transferRate ?? initial.transferRate,
+              rank: usage?.rank ?? details.rank ?? initial.rank ?? null,
+              rankTotal: usage?.rankTotal ?? details.rankTotal ?? initial.rankTotal ?? null,
+              weeklyUsage: usage?.weeklyUsage ?? [],
+              weekdayUsage: usage?.weekdayUsage ?? [],
+              boardingRatio: usage?.boardingRatio ?? null,
+              stopProfile: usage?.stopProfile ?? null,
+              nearbyStations: Array.isArray(extra?.nearby_stations) ? extra.nearby_stations : [],
+              routes: Array.isArray(extra?.routes) ? extra.routes : initial.routes ?? [],
+              routeOverlaps: Array.isArray(extra?.route_overlaps) ? extra.route_overlaps : [],
             })
           } else {
             setDetailError('정류소를 찾지 못했습니다.')
@@ -143,6 +219,7 @@ function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCl
         }
       } catch (err) {
         if (!controller.signal.aborted) {
+          setExtraLoad({ loading: false, errors: [] })
           setDetailError(err.message)
         }
       } finally {
@@ -155,7 +232,7 @@ function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCl
     loadDetail()
 
     return () => controller.abort()
-  }, [selectedId, stations])
+  }, [selectedId, stations, detailReloadKey])
 
   function closeDetail() {
     onCloseStation()
@@ -271,6 +348,8 @@ function MapPage({ stations, filteredStations, selectedId, onSelectStation, onCl
       {selectedStation && (
         <StationDetail
           station={selectedStation}
+          extraLoad={extraLoad}
+          onRetryExtra={() => setDetailReloadKey(n => n + 1)}
           onClose={closeDetail}
         />
       )}

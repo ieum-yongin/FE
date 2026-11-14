@@ -37,14 +37,18 @@ export function normalizeStation(raw) {
   return {
     ...base,
     name: first(raw.name, raw.station_name, raw.stationName, base.name),
-    direction: first(raw.direction, raw.direction_name, base.direction),
+    direction: first(raw.direction, raw.direction_label, raw.direction_name, base.direction),
+    stopNumber: first(raw.stopNumber, raw.stop_number) ?? null,
+    roadAddress: first(raw.roadAddress, raw.road_address) ?? null,
+    riskReason: first(raw.riskReason, raw.risk_reason) ?? null,
+    riskMetrics: first(raw.riskMetrics, raw.risk_metrics) ?? null,
     risk,
     riskLabel: first(raw.riskLabel, raw.risk_label, riskLabels[risk]),
     averageBoarding: first(raw.averageBoarding, raw.average_boarding, raw.average_daily_boarding, raw.avg_boarding) ?? null,
     averageAlighting: first(raw.averageAlighting, raw.average_alighting, raw.average_daily_alighting, raw.avg_alighting) ?? null,
-    routeCount: first(raw.routeCount, raw.route_count) ?? null,
+    routeCount: first(raw.routeCount, raw.route_count, raw.serving_route_count, raw.risk_metrics?.serving_route_count) ?? null,
     transferRate: first(raw.transferRate, raw.transfer_rate) ?? null,
-    rank: first(raw.rank, raw.boarding_rank) ?? null,
+    rank: first(raw.rank, raw.city_boarding_rank, raw.boarding_rank) ?? null,
     period: first(raw.period, raw.analysis_period, base.period),
     routes: Array.isArray(raw.routes) ? raw.routes : [],
     latitude: first(raw.latitude, raw.lat, raw.station_latitude) ?? null,
@@ -126,7 +130,21 @@ export async function getStationUsage(id, { signal } = {}) {
     return station ? { averageBoarding: station.averageBoarding, averageAlighting: station.averageAlighting, transferRate: station.transferRate } : null
   }
   const raw = await api.get(`/api/stations/${encodeURIComponent(id)}/usage/`, { signal })
-  return { averageBoarding: first(raw?.averageBoarding, raw?.average_boarding, raw?.average_daily_boarding) ?? null, averageAlighting: first(raw?.averageAlighting, raw?.average_alighting, raw?.average_daily_alighting) ?? null, transferRate: first(raw?.transferRate, raw?.transfer_rate) ?? null, rank: first(raw?.rank, raw?.boarding_rank) ?? null }
+  // 통계 필드명은 배포된 API 버전에 따라 달라질 수 있습니다.
+  // 실제 존재하는 필드만 읽으며 값이 없으면 null로 둡니다.
+  const usage = raw?.usage && typeof raw.usage === 'object' ? raw.usage : raw
+  const rankInfo = usage?.ranking && typeof usage.ranking === 'object' ? usage.ranking : {}
+  return {
+    averageBoarding: first(usage?.averageBoarding, usage?.average_boarding, usage?.average_daily_boarding, usage?.avg_boarding) ?? null,
+    averageAlighting: first(usage?.averageAlighting, usage?.average_alighting, usage?.average_daily_alighting, usage?.avg_alighting) ?? null,
+    transferRate: first(usage?.transferRate, usage?.transfer_rate, usage?.transfer_ratio, usage?.transfer_percentage) ?? null,
+    rank: first(usage?.city_boarding_rank, usage?.rank, usage?.boarding_rank, usage?.yongin_rank, rankInfo?.rank) ?? null,
+    rankTotal: first(usage?.rankTotal, usage?.rank_total, usage?.total_stations, rankInfo?.total) ?? null,
+    weeklyUsage: Array.isArray(usage?.weekly_usage) ? usage.weekly_usage : [],
+    weekdayUsage: Array.isArray(usage?.weekday_usage) ? usage.weekday_usage : [],
+    boardingRatio: first(usage?.boarding_ratio, usage?.boardingRatio) ?? null,
+    stopProfile: first(usage?.stop_profile, usage?.stopProfile) ?? null,
+  }
 }
 
 export async function getStationExtraDetails(id, { signal } = {}) {
